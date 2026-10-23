@@ -7,10 +7,24 @@ const BLOCKED_HOSTS = [
   "sentry.io",
   "wixpress.com",
   "schema.org",
+  "vite.com",
+  "hellowork.com",
+  "linkedin.com",
+  "licdn.com",
+  "francetravail.fr",
+  "pole-emploi.fr",
+  "free-work.com",
 ]
 
+const OBFUSCATED = /([a-z0-9._%+-]+)\s*(?:\[at\]|\(at\)|\{at\}| arobase | chez )\s*([a-z0-9.-]+\.[a-z]{2,})/gi
+
 export function extractEmails(text: string): string[] {
-  const found = text.match(EMAIL_PATTERN) ?? []
+  const normalized = text
+    .replace(/%40/gi, "@")
+    .replace(/mailto:/gi, " ")
+    .replace(OBFUSCATED, "$1@$2")
+    .replace(/&#0*64;|&commat;/gi, "@")
+  const found = normalized.match(EMAIL_PATTERN) ?? []
   const unique: string[] = []
   for (const raw of found) {
     const email = raw.replace(/[.,;:)]+$/g, "").toLowerCase()

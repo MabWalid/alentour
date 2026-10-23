@@ -1,4 +1,5 @@
 import { extractEmails } from "./emails"
+import { emailsOnSite } from "./site-email"
 import { decodeHtml } from "./html"
 import { fetchExternal } from "./http"
 import { classifyText, type Offer, type OfferDetail } from "./offers"
@@ -101,6 +102,36 @@ type FtDetail = {
   etablissement?: { libelleEnseigne?: string; urlEntreprise?: string | null }
 }
 
+export function parseFranceTravailApply(payload: string): { emails: string[]; phone: string | null; applyUrl: string | null } {
+  let html = payload
+  let posted: string | null = null
+  if (payload.trim().startsWith("{")) {
+    try {
+      const data = JSON.parse(payload) as {
+        _tapestry?: { content?: [string, string][]; inits?: unknown[] }
+      }
+      html = data._tapestry?.content?.[0]?.[1] ?? ""
+      for (const init of data._tapestry?.inits ?? []) {
+        if (Array.isArray(init) && typeof init[1] === "string" && init[1].startsWith("http")) posted = init[1]
+      }
+    } catch {
+      html = payload
+    }
+  }
+  const hrefs = [...html.matchAll(/href='([^']+)'/g)].map((match) =>
+    decodeHtml(match[1]).replace(/&amp;/g, "&"),
+  )
+  const partner = hrefs.find(
+    (href) => href.startsWith("http") && !/francetravail\.fr|pole-emploi\.fr/i.test(href),
+  )
+  const phone = html.match(/href='tel:([^']+)'/)?.[1]?.replace(/\s+/g, " ") ?? null
+  return {
+    emails: extractEmails(html),
+    phone,
+    applyUrl: partner || posted,
+  }
+}
+
 export async function fetchFranceTravailDetail(offer: Offer): Promise<OfferDetail> {
   const response = await fetchExternal(`${DETAIL_URL}/${encodeURIComponent(offer.externalId)}`, {
     headers: { Accept: "application/json" },
@@ -121,6 +152,11 @@ export async function fetchFranceTravailDetail(offer: Offer): Promise<OfferDetai
     .map((part) => decodeHtml(String(part)))
     .join("\n\n")
   const website = detail.etablissement?.urlEntreprise || detail.pageEmployeurUrl || null
+  const contactResponse = await fetchExternal(
+    `https://candidat.francetravail.fr/offres/recherche/detail.detailstandalone.postuler.contact:chargercontact?t:ac=${encodeURIComponent(offer.externalId)}&t:zone=contactZone`,
+    { headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" } },
+  ).catch(() => null)
+  const contact = contactResponse?.ok ? parseFranceTravailApply(await contactResponse.text()) : null
   const kinds = [
     ...new Set([
       ...offer.kinds,
@@ -137,10 +173,18 @@ export async function fetchFranceTravailDetail(offer: Offer): Promise<OfferDetai
     contract: detail.syntheseContrat || offer.contract,
     description,
     kinds,
-    emails: extractEmails(description),
-    phone: null,
+    emails: [
+      ...new Set([
+        ...extractEmails(`${description}\n${detail.descriptif || ""}`),
+        ...(contact?.emails ?? []),
+        ...(await emailsOnSite(website)),
+      ]),
+    ],
+    phone: contact?.phone || null,
     website,
     hiddenEmail: false,
-    applyUrl: `https://candidat.francetravail.fr/offres/recherche/detail/${encodeURIComponent(offer.externalId)}`,
+    applyUrl:
+      contact?.applyUrl ||
+      `https://candidat.francetravail.fr/offres/recherche/detail/${encodeURIComponent(offer.externalId)}`,
   }
 }

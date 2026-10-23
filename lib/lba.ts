@@ -1,6 +1,7 @@
 import { fetchExternal } from "./http"
 import { decodeHtml } from "./html"
 import { extractEmails } from "./emails"
+import { emailsOnSite } from "./site-email"
 import { classifyText, slugify, type Offer, type OfferDetail } from "./offers"
 
 const SEARCH_URL = "https://labonnealternance.apprentissage.beta.gouv.fr/api/v1/search"
@@ -119,8 +120,9 @@ export async function fetchLbaDetail(offer: Offer): Promise<OfferDetail> {
     .map((part) => decodeHtml(String(part)))
     .join("\n\n")
   const publishedEmail = (detail.contact?.email || "").trim().toLowerCase()
-  const emails = extractEmails(`${publishedEmail}\n${description}`)
   const website = detail.company?.url || null
+  const siteEmails = await emailsOnSite(website)
+  const emails = [...new Set([...extractEmails(`${publishedEmail}\n${description}`), ...siteEmails])]
   return {
     ...offer,
     title: detail.title ? decodeHtml(detail.title) : offer.title,
@@ -139,3 +141,4 @@ export async function fetchLbaDetail(offer: Offer): Promise<OfferDetail> {
       : offer.kinds,
   }
 }
+

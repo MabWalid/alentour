@@ -128,19 +128,28 @@ export function parseLinkedInDetail(html: string): string {
   return decodeHtml(match?.[1] ?? "").slice(0, 4000)
 }
 
+export function linkedInApplyUrl(html: string, fallback: string): string {
+  const match = html.match(
+    /<a\b[^>]*href="(https:[^"]+)"[^>]*apply-link-offsite|<a\b[^>]*apply-link-offsite[^>]*href="(https:[^"]+)"/i,
+  )
+  const href = match?.[1] || match?.[2]
+  return href ? decodeHtml(href) : fallback
+}
+
 export async function fetchLinkedInDetail(offer: Offer): Promise<OfferDetail> {
   const response = await fetchExternal(`${GUEST_JOB}/${encodeURIComponent(offer.externalId)}`, {
     headers: { Accept: "text/html", "User-Agent": BROWSER_UA },
   })
-  const description = response.ok ? parseLinkedInDetail(await response.text()) : offer.description
+  const html = response.ok ? await response.text() : ""
+  const description = html ? parseLinkedInDetail(html) : offer.description
   const text = description || offer.description
   return {
     ...offer,
     description: text,
-    emails: extractEmails(text),
+    emails: extractEmails(`${html}\n${text}`),
     phone: null,
     website: null,
     hiddenEmail: false,
-    applyUrl: offer.url,
+    applyUrl: html ? linkedInApplyUrl(html, offer.url) : offer.url,
   }
 }

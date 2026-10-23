@@ -2,7 +2,9 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { buildDraft, defaultProfile } from "./draft"
 import { extractEmails } from "./emails"
-import { parseFranceTravailHtml } from "./francetravail"
+import { parseFranceTravailApply, parseFranceTravailHtml } from "./francetravail"
+import { helloWorkApplyUrl } from "./hellowork"
+import { linkedInApplyUrl } from "./linkedin"
 import { mapFreeWorkPosting } from "./freework"
 import { parseHelloWorkHtml } from "./hellowork"
 import { parseLinkedInHtml } from "./linkedin"
@@ -98,9 +100,34 @@ test("france travail cards keep the public fields", () => {
 test("html entities and public emails", () => {
   assert.equal(decodeHtml("D&eacute;fense &amp; S&eacute;curit&eacute;"), "Défense & Sécurité")
   assert.equal(decodeHtml("Python &amp;amp; API"), "Python & API")
+  assert.deepEqual(extractEmails('Écrire à <a href="mailto:jobs@atelier.fr">ici</a> ou contact [at] atelier.fr'), [
+    "jobs@atelier.fr",
+    "contact@atelier.fr",
+  ])
+  assert.deepEqual(extractEmails("contactezmoi@vite.com"), [])
   assert.deepEqual(
     extractEmails("Écrire à contact@boulangerie.fr ou noreply@exemple.fr et logo@cdn.png"),
     ["contact@boulangerie.fr"],
+  )
+})
+
+test("apply links come from the public offer page", () => {
+  const franceTravail = parseFranceTravailApply(
+    JSON.stringify({
+      _tapestry: {
+        content: [["contactZone", "<a id='idLienPartenaire' href='https://www.recrutement.leclerc/offre?x=1&amp;y=2'>Postuler</a>"]],
+        inits: ["offre/contact:init", ["offre/postulerEnLigne:init", "https://candidat.francetravail.fr/candidature/postulerenligne/1"]],
+      },
+    }),
+  )
+  assert.equal(franceTravail.applyUrl, "https://www.recrutement.leclerc/offre?x=1&y=2")
+  assert.equal(
+    helloWorkApplyUrl("<a href='#postuler' data-cy='applyButtonHeader'>Postuler</a>", "https://www.hellowork.com/fr-fr/emplois/1.html"),
+    "https://www.hellowork.com/fr-fr/emplois/1.html#postuler",
+  )
+  assert.equal(
+    linkedInApplyUrl('<a class="apply-link-offsite" href="https://jobs.exemple.fr/12">Postuler</a>', "https://www.linkedin.com/jobs/view/1"),
+    "https://jobs.exemple.fr/12",
   )
 })
 

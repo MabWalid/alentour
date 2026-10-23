@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetContent,
@@ -494,58 +493,70 @@ export function AlentourApp() {
                 {active.spontaneous && <Badge variant="outline">Candidature spontanée</Badge>}
                 <Badge variant="outline">{SOURCE_LABEL[active.source]}</Badge>
               </div>
-              <p className="text-sm whitespace-pre-wrap text-foreground/90">
-                {(detail?.description || active.description || "Pas de description dans la liste.").slice(0, 1800)}
-              </p>
-              {detailLoading && <p className="text-sm text-muted-foreground">Je lis l’annonce…</p>}
-              {detailError && <p className="text-sm text-destructive">{detailError}</p>}
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <p className="font-medium">Contact public</p>
+              <div className="space-y-3 rounded-[1.25rem] bg-secondary p-3 text-sm">
+                <p className="font-medium">Pour postuler</p>
+                {detailLoading && <p className="text-muted-foreground">Je lis l’annonce pour trouver l’email et le lien.</p>}
+                {detailError && <p className="text-destructive">{detailError}</p>}
                 {detail?.emails.length ? (
-                  <ul>
+                  <ul className="space-y-1">
                     {detail.emails.map((email) => (
                       <li key={email}>
-                        <a className="underline" href={`mailto:${email}`}>
+                        <a className="font-medium underline" href={`mailto:${email}`}>
                           {email}
                         </a>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-muted-foreground">
-                    {detail?.hiddenEmail
-                      ? "Le recruteur a un email, mais il est masqué. Passe par le lien de candidature."
-                      : "Aucun email écrit dans l’annonce."}
-                  </p>
+                  !detailLoading && (
+                    <p className="text-muted-foreground">
+                      {detail?.hiddenEmail
+                        ? "L’email du recruteur est masqué sur cette annonce. Le lien pour postuler est juste en dessous."
+                        : "Aucun email écrit publiquement. Le lien pour postuler ouvre la candidature."}
+                    </p>
+                  )
                 )}
                 {detail?.phone && (
-                  <a className="block underline" href={`tel:${detail.phone}`}>
+                  <a className="block font-medium underline" href={`tel:${detail.phone}`}>
                     {detail.phone}
                   </a>
                 )}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-10"
+                    className="h-10 rounded-full"
                     nativeButton={false}
                     render={<a href={detail?.applyUrl || active.url} target="_blank" rel="noreferrer" />}
                   >
-                    Voir l’offre
+                    Postuler
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10"
-                    disabled={siteLoading || !detail?.website}
-                    onClick={() => void lookForEmail()}
-                  >
-                    {siteLoading ? "Lecture du site…" : "Email sur le site"}
-                  </Button>
+                  {(detail?.applyUrl || active.url) !== active.url && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-full"
+                      nativeButton={false}
+                      render={<a href={active.url} target="_blank" rel="noreferrer" />}
+                    >
+                      Voir l’annonce
+                    </Button>
+                  )}
+                  {detail?.website && !detail.emails.length && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-full"
+                      disabled={siteLoading}
+                      onClick={() => void lookForEmail()}
+                    >
+                      {siteLoading ? "Lecture du site…" : "Chercher sur le site"}
+                    </Button>
+                  )}
                 </div>
               </div>
-              <Separator />
+              <p className="text-sm whitespace-pre-wrap text-foreground/90">
+                {(detail?.description || active.description || "Pas de description dans la liste.").slice(0, 1800)}
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="subject">Objet</Label>
                 <Input id="subject" className="h-11" value={subject} onChange={(event) => setSubject(event.target.value)} />

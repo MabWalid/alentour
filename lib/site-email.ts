@@ -3,6 +3,15 @@ import { decodeHtml } from "./html"
 import { EXTERNAL_USER_AGENT } from "./http"
 import { assertPublicUrl } from "./ssrf"
 
+export async function emailsOnSite(url: string | null): Promise<string[]> {
+  if (!url || !/^https?:\/\//i.test(url)) return []
+  try {
+    return (await readPublicEmails(url)).emails
+  } catch {
+    return []
+  }
+}
+
 export async function readPublicEmails(rawUrl: string): Promise<{ emails: string[]; finalUrl: string }> {
   let current = rawUrl
   for (let hop = 0; hop < 3; hop += 1) {

@@ -117,17 +117,25 @@ export function parseHelloWorkDetail(html: string): string {
   return decodeHtml(end > 0 ? slice.slice(0, end) : slice).slice(0, 4000)
 }
 
+export function helloWorkApplyUrl(html: string, fallback: string): string {
+  const external = html.match(/data-cy="applyButton[^"]*"[\s\S]{0,400}?href="(https:[^"]+)"|href="(https:[^"]+)"[\s\S]{0,200}?data-cy="applyButton/i)
+  const href = external?.[1] || external?.[2]
+  if (href && !/hellowork\.com/i.test(href)) return decodeHtml(href)
+  return fallback.includes("#postuler") ? fallback : `${fallback}#postuler`
+}
+
 export async function fetchHelloWorkDetail(offer: Offer): Promise<OfferDetail> {
   const response = await fetchExternal(offer.url, { headers: { Accept: "text/html" } })
-  const description = response.ok ? parseHelloWorkDetail(await response.text()) : ""
+  const html = response.ok ? await response.text() : ""
+  const description = html ? parseHelloWorkDetail(html) : ""
   const text = description || offer.description
   return {
     ...offer,
     description: text,
-    emails: extractEmails(text),
+    emails: extractEmails(`${html}\n${text}`),
     phone: null,
     website: null,
     hiddenEmail: false,
-    applyUrl: offer.url,
+    applyUrl: html ? helloWorkApplyUrl(html, offer.url) : `${offer.url}#postuler`,
   }
 }
