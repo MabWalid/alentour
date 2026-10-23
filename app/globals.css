@@ -49,30 +49,30 @@
 }
 
 :root {
-  --background: oklch(0.962 0.018 95);
-  --foreground: oklch(0.24 0.02 70);
-  --card: oklch(0.985 0.012 95);
-  --card-foreground: oklch(0.24 0.02 70);
-  --popover: oklch(0.985 0.012 95);
-  --popover-foreground: oklch(0.24 0.02 70);
-  --primary: oklch(0.38 0.055 160);
-  --primary-foreground: oklch(0.97 0.012 95);
-  --secondary: oklch(0.92 0.028 85);
-  --secondary-foreground: oklch(0.28 0.03 70);
-  --muted: oklch(0.93 0.02 90);
-  --muted-foreground: oklch(0.46 0.02 70);
-  --accent: oklch(0.9 0.045 55);
-  --accent-foreground: oklch(0.32 0.06 40);
-  --destructive: oklch(0.55 0.16 35);
-  --border: oklch(0.86 0.028 85);
-  --input: oklch(0.86 0.028 85);
-  --ring: oklch(0.48 0.07 160);
+  --background: oklch(0.955 0.012 255);
+  --foreground: oklch(0.22 0.045 275);
+  --card: oklch(0.995 0.004 255);
+  --card-foreground: oklch(0.22 0.045 275);
+  --popover: oklch(0.995 0.004 255);
+  --popover-foreground: oklch(0.22 0.045 275);
+  --primary: oklch(0.28 0.07 278);
+  --primary-foreground: oklch(0.98 0.01 255);
+  --secondary: oklch(0.93 0.02 262);
+  --secondary-foreground: oklch(0.28 0.05 278);
+  --muted: oklch(0.94 0.012 255);
+  --muted-foreground: oklch(0.48 0.03 275);
+  --accent: oklch(0.93 0.09 128);
+  --accent-foreground: oklch(0.28 0.06 145);
+  --destructive: oklch(0.55 0.19 25);
+  --border: oklch(0.88 0.016 265);
+  --input: oklch(0.88 0.016 265);
+  --ring: oklch(0.5 0.12 278);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 1rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -123,6 +123,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(920px 420px at 110% -80px, oklch(0.84 0.09 70 / 0.45), transparent 60%),
+      radial-gradient(760px 420px at -15% -40px, oklch(0.86 0.06 262 / 0.8), transparent 58%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;

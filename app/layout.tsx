@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next"
-import { Figtree, Fraunces } from "next/font/google"
+import { Bricolage_Grotesque, Outfit } from "next/font/google"
 import { AppToaster } from "@/components/toaster"
 import "./globals.css"
 
-const sans = Figtree({
+const sans = Outfit({
   variable: "--font-sans",
   subsets: ["latin"],
 })
 
-const heading = Fraunces({
+const heading = Bricolage_Grotesque({
   variable: "--font-heading",
   subsets: ["latin"],
 })
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#1f4d3a",
+  themeColor: "#1b1733",
   width: "device-width",
   initialScale: 1,
 }
