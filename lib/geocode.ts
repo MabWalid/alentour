@@ -11,12 +11,22 @@ type AdresseFeature = {
   geometry?: { coordinates?: [number, number] }
 }
 
-async function searchAdresse(query: string, municipality: boolean): Promise<Place | null> {
+const geocodeCache = new Map<string, Promise<Place | null>>()
+
+async function searchAdresse(
+  query: string,
+  municipality: boolean,
+  bias?: { latitude: number; longitude: number },
+): Promise<Place | null> {
   const url = new URL("https://api-adresse.data.gouv.fr/search/")
   url.searchParams.set("q", query)
   url.searchParams.set("limit", "1")
   url.searchParams.set("autocomplete", "0")
   if (municipality) url.searchParams.set("type", "municipality")
+  if (bias) {
+    url.searchParams.set("lat", String(bias.latitude))
+    url.searchParams.set("lon", String(bias.longitude))
+  }
   const response = await fetchExternal(url.toString(), { headers: { Accept: "application/json" } })
   if (!response.ok) return null
   const payload = (await response.json()) as { features?: AdresseFeature[] }
@@ -33,8 +43,16 @@ async function searchAdresse(query: string, municipality: boolean): Promise<Plac
   }
 }
 
-export async function geocodeCity(query: string): Promise<Place | null> {
+export async function geocodeCity(
+  query: string,
+  bias?: { latitude: number; longitude: number },
+): Promise<Place | null> {
   const city = query.trim()
   if (city.length < 2) return null
-  return (await searchAdresse(city, true)) ?? (await searchAdresse(city, false))
+  const key = `${city.toLowerCase()}|${bias ? `${bias.latitude.toFixed(2)},${bias.longitude.toFixed(2)}` : ""}`
+  const cached = geocodeCache.get(key)
+  if (cached) return cached
+  const pending = (async () => (await searchAdresse(city, true, bias)) ?? (await searchAdresse(city, false, bias)))()
+  geocodeCache.set(key, pending)
+  return pending
 }

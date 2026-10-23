@@ -4,6 +4,7 @@ import { geocodeCity } from "./geocode"
 import { searchHelloWork } from "./hellowork"
 import { searchLba } from "./lba"
 import { searchLinkedIn } from "./linkedin"
+import { keepInRing } from "./near"
 import {
   dedupeKey,
   matchesKinds,
@@ -95,14 +96,15 @@ export async function searchOffers(input: {
       tasks.push(searchFreeWork({ query: input.query, city, kinds: input.kinds }))
     }
     const settled = await Promise.allSettled(tasks)
-    settled.forEach((result) => {
+    for (const result of settled) {
       if (result.status === "fulfilled") {
-        remember(offers, seenIds, seenText, stamp(result.value, place?.city || input.city, km, rank), input.kinds)
+        const local = km != null && place ? await keepInRing(result.value, place, km) : result.value
+        remember(offers, seenIds, seenText, stamp(local, place?.city || input.city, km, rank), input.kinds)
       } else {
         const message = result.reason instanceof Error ? result.reason.message : "Une source n'a pas répondu."
         if (!warnings.includes(message)) warnings.push(message)
       }
-    })
+    }
   }
 
   if (place) {

@@ -258,8 +258,8 @@ export function AlentourApp() {
       <Hero tab={tab} city={city} tracked={tracked.length} />
 
       {tab === "pistes" && (
-        <section className="relative z-10 -mt-8 space-y-4 px-4">
-          <Card className="gap-4 rounded-[1.6rem] border-white/70 p-4 shadow-[0_24px_50px_-28px_rgba(27,23,51,0.55)] md:p-5">
+        <section className="space-y-4 px-4 pt-5">
+          <Card className="gap-4 rounded-[1.6rem] p-4 shadow-[0_18px_40px_-28px_rgba(24,20,40,0.35)] md:p-5">
             <div className="space-y-2">
               <Label htmlFor="seeking">Ce que tu cherches</Label>
               <Input
@@ -298,7 +298,7 @@ export function AlentourApp() {
             </div>
             <Button
               type="button"
-              className="h-12 w-full rounded-2xl bg-[oklch(0.88_0.17_128)] text-base font-semibold text-[oklch(0.24_0.05_278)] hover:bg-[oklch(0.84_0.16_128)]"
+              className="h-12 w-full rounded-2xl text-base font-semibold"
               disabled={searching}
               onClick={() => void search()}
             >
@@ -340,43 +340,21 @@ export function AlentourApp() {
                   Rien en stage, alternance, job étudiant ou premier emploi pour « {store.profile.seeking || "cette recherche"} ». Change un mot, ou décoche un type trop strict.
                 </Card>
               ) : (
-                <ul className="grid gap-2 md:grid-cols-2">
-                  {result.offers.map((offer, index) => (
-                    <li key={offer.id}>
-                      <button
-                        type="button"
-                        className="flex w-full gap-3 rounded-[1.25rem] border border-white/80 bg-card p-3 text-left shadow-[0_12px_30px_-22px_rgba(27,23,51,0.7)]"
-                        onClick={() => openOffer(offer)}
-                      >
-                        <span className={`mt-1 w-1 shrink-0 self-stretch rounded-full ${SOURCE_TONE[offer.source]}`} />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="flex flex-wrap gap-1.5">
-                              {offer.kinds.map((kind) => (
-                                <Badge key={kind} variant="secondary" className="rounded-full">
-                                  {KIND_LABEL[kind]}
-                                </Badge>
-                              ))}
-                              {offer.spontaneous && <Badge variant="outline" className="rounded-full">Spontanée</Badge>}
-                              {store.applications[offer.id] && (
-                                <Badge className="rounded-full">{STATUS_LABEL[store.applications[offer.id].status]}</Badge>
-                              )}
-                            </span>
-                            <span className="font-heading text-xs text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
-                          </span>
-                          <span className="mt-2 block font-heading text-lg leading-tight tracking-tight">{offer.title}</span>
-                          <span className="mt-1 block text-sm text-muted-foreground">
-                            {[offer.organization, offer.city].filter(Boolean).join(" · ")}
-                          </span>
-                          <span className="mt-2 block text-xs text-muted-foreground">
-                            {SOURCE_LABEL[offer.source]}
-                            {offer.contract ? ` · ${offer.contract}` : ""}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-5">
+                  <OfferGroup
+                    title={`Autour de ${result.place?.city || city}`}
+                    offers={result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France")}
+                    applications={store.applications}
+                    onOpen={openOffer}
+                  />
+                  <OfferGroup
+                    title="Plus loin en France"
+                    note="Il n’y avait plus assez d’offres dans le rayon, alors la recherche a continué."
+                    offers={result.offers.filter((offer) => offer.zoneLabel === "Ailleurs en France")}
+                    applications={store.applications}
+                    onOpen={openOffer}
+                  />
+                </div>
               )}
               <p className="text-xs text-muted-foreground">
                 Sources lues : La bonne alternance, France Travail, LinkedIn, HelloWork et Free-Work. Indeed et Welcome to the Jungle ne laissent pas une liste publique stable, donc ils ne sont pas branchés. Ouvre toujours l’annonce d’origine avant d’envoyer.
@@ -387,7 +365,7 @@ export function AlentourApp() {
       )}
 
       {tab === "suivi" && (
-        <section className="relative z-10 -mt-8 space-y-3 px-4">
+        <section className="space-y-3 px-4 pt-4">
           {tracked.length === 0 ? (
             <Card className="p-4 text-sm text-muted-foreground">
               Les offres que tu ouvres et les mails que tu prépares restent ici, sur cet appareil seulement.
@@ -416,8 +394,8 @@ export function AlentourApp() {
       )}
 
       {tab === "profil" && (
-        <section className="relative z-10 -mt-8 space-y-4 px-4">
-          <Card className="gap-3 rounded-[1.6rem] border-white/70 p-4 shadow-[0_24px_50px_-28px_rgba(27,23,51,0.55)]">
+        <section className="space-y-4 px-4 pt-5">
+          <Card className="gap-3 rounded-[1.6rem] p-4 shadow-[0_18px_40px_-28px_rgba(24,20,40,0.35)]">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Prénom" value={store.profile.firstName} onChange={(value) => patchProfile({ firstName: value })} />
               <Field label="Nom" value={store.profile.lastName} onChange={(value) => patchProfile({ lastName: value })} />
@@ -475,7 +453,7 @@ export function AlentourApp() {
       )}
 
       <nav className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-        <div className="grid w-full max-w-sm grid-cols-3 rounded-full bg-[oklch(0.22_0.05_278)] p-1.5 text-white shadow-[0_16px_40px_-16px_rgba(27,23,51,0.8)]">
+        <div className="grid w-full max-w-sm grid-cols-3 rounded-full border bg-white/95 p-1.5 shadow-[0_12px_40px_-18px_rgba(24,20,40,0.45)] backdrop-blur">
           {(
             [
               ["pistes", "Pistes", Compass],
@@ -486,7 +464,7 @@ export function AlentourApp() {
             <button
               key={id}
               type="button"
-              className={`flex h-12 items-center justify-center gap-1.5 rounded-full text-sm ${tab === id ? "bg-[oklch(0.88_0.17_128)] font-semibold text-[oklch(0.24_0.05_278)]" : "text-white/70"}`}
+              className={`flex h-12 items-center justify-center gap-1.5 rounded-full text-sm ${tab === id ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground"}`}
               onClick={() => setTab(id)}
             >
               <Icon className="size-4" />
@@ -590,11 +568,7 @@ export function AlentourApp() {
                 <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => void copyDraft()}>
                   Copier
                 </Button>
-                <Button
-                  type="button"
-                  className="h-11 rounded-2xl bg-[oklch(0.88_0.17_128)] text-[oklch(0.24_0.05_278)] hover:bg-[oklch(0.84_0.16_128)]"
-                  onClick={openMail}
-                >
+                <Button type="button" className="h-11 rounded-2xl" onClick={openMail}>
                   Ouvrir le mail
                 </Button>
               </div>
@@ -626,7 +600,7 @@ function Hero({ tab, city, tracked }: { tab: Tab; city: string; tracked: number 
   const title = tab === "pistes" ? "Alentour" : tab === "suivi" ? "Suivi" : "Profil"
   const text =
     tab === "pistes"
-      ? `Stages, alternances, jobs étudiants et premiers emplois. On commence par ${city}, puis on s’éloigne seulement s’il le faut.`
+      ? `Stages, alternances, jobs étudiants et premiers emplois. D’abord ${city}, puis plus loin seulement s’il le faut.`
       : tab === "suivi"
         ? tracked === 0
           ? "Les offres que tu prépares restent ici, sur cet appareil seulement."
@@ -634,21 +608,76 @@ function Hero({ tab, city, tracked }: { tab: Tab; city: string; tracked: number 
         : "Ces infos écrivent tes mails. Elles restent dans ce navigateur : un pote qui ouvre Alentour part de zéro."
 
   return (
-    <header className="relative overflow-hidden bg-[oklch(0.22_0.05_278)] px-5 pt-8 pb-14 text-white md:px-8">
-      <div className="pointer-events-none absolute -top-16 -right-10 size-56 rounded-full border border-white/15" />
-      <div className="pointer-events-none absolute top-6 -right-2 size-32 rounded-full border border-[oklch(0.88_0.17_128)]/80" />
-      <div className="pointer-events-none absolute top-16 right-8 size-3 rounded-full bg-[oklch(0.88_0.17_128)]" />
-      <p className="text-[11px] font-medium tracking-[0.22em] text-white/55 uppercase">Pour toi · 0 €</p>
-      <h1 className="mt-3 max-w-xl font-heading text-5xl leading-[0.9] tracking-tight md:text-6xl">{title}</h1>
-      <p className="mt-4 max-w-md text-sm leading-relaxed text-white/75">{text}</p>
-      {tab === "pistes" && (
-        <ol className="mt-5 flex flex-wrap gap-2 text-[11px] font-medium">
-          <li className="rounded-full bg-white/10 px-3 py-1">1 · Ta ville</li>
-          <li className="rounded-full bg-white/10 px-3 py-1">2 · Les offres</li>
-          <li className="rounded-full bg-[oklch(0.88_0.17_128)] px-3 py-1 text-[oklch(0.24_0.05_278)]">3 · Ton mail</li>
-        </ol>
-      )}
+    <header className="px-5 pt-7 md:px-8">
+      <h1 className="font-heading text-5xl leading-none tracking-tight">{title}</h1>
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">{text}</p>
     </header>
+  )
+}
+
+function OfferGroup({
+  title,
+  note,
+  offers,
+  applications,
+  onOpen,
+}: {
+  title: string
+  note?: string
+  offers: Offer[]
+  applications: Store["applications"]
+  onOpen: (offer: Offer) => void
+}) {
+  if (offers.length === 0) return null
+  return (
+    <section className="space-y-2">
+      <div className="px-1">
+        <h2 className="font-heading text-xl tracking-tight">{title}</h2>
+        {note && <p className="text-xs text-muted-foreground">{note}</p>}
+      </div>
+      <ul className="grid gap-2 md:grid-cols-2">
+        {offers.map((offer) => (
+          <li key={offer.id}>
+            <button
+              type="button"
+              className="flex w-full gap-3 rounded-[1.25rem] border bg-card p-3.5 text-left shadow-[0_10px_24px_-20px_rgba(24,20,40,0.8)]"
+              onClick={() => onOpen(offer)}
+            >
+              <span className={`mt-1 w-1 shrink-0 self-stretch rounded-full ${SOURCE_TONE[offer.source]}`} />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-start justify-between gap-2">
+                  <span className="text-sm font-medium">{offer.city || "Ville non précisée"}</span>
+                  {offer.distanceKm != null && offer.distanceKm > 0 && (
+                    <span className="shrink-0 text-xs text-muted-foreground">{offer.distanceKm} km</span>
+                  )}
+                </span>
+                <span className="mt-1 block font-heading text-lg leading-tight tracking-tight">{offer.title}</span>
+                <span className="mt-1 block truncate text-sm text-muted-foreground">{offer.organization}</span>
+                <span className="mt-2 flex flex-wrap gap-1.5">
+                  {offer.kinds.map((kind) => (
+                    <Badge key={kind} variant="secondary" className="rounded-full">
+                      {KIND_LABEL[kind]}
+                    </Badge>
+                  ))}
+                  {offer.spontaneous && (
+                    <Badge variant="outline" className="rounded-full">
+                      Spontanée
+                    </Badge>
+                  )}
+                  {applications[offer.id] && (
+                    <Badge className="rounded-full">{STATUS_LABEL[applications[offer.id].status]}</Badge>
+                  )}
+                  <span className="self-center text-xs text-muted-foreground">
+                    {SOURCE_LABEL[offer.source]}
+                    {offer.contract ? ` · ${offer.contract}` : ""}
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

@@ -7,6 +7,7 @@ import { mapFreeWorkPosting } from "./freework"
 import { parseHelloWorkHtml } from "./hellowork"
 import { parseLinkedInHtml } from "./linkedin"
 import { decodeHtml } from "./html"
+import { haversineKm, isInsideRadius, offerLocality } from "./near"
 import { classifyText, dedupeKey, matchesKinds, zoneLabel } from "./offers"
 import { isPrivateAddress } from "./ssrf"
 import { parseBackup } from "./storage"
@@ -57,6 +58,19 @@ test("public board cards keep title, company and city", () => {
   assert.ok(freework?.kinds.includes("junior"))
   assert.equal(freework?.url, "https://www.free-work.com/fr/tech-it/job-mission/developpeur-python-django/developpeur-python")
   assert.match(freework?.description ?? "", /jobs@atelier.fr/)
+})
+
+test("a Lille search drops Nantes and keeps Roubaix", () => {
+  const lille = { latitude: 50.631, longitude: 3.057 }
+  const nantes = haversineKm(lille, { latitude: 47.218, longitude: -1.554 })
+  const roubaix = haversineKm(lille, { latitude: 50.692, longitude: 3.175 })
+  assert.ok(nantes > 500)
+  assert.equal(isInsideRadius(nantes, 15), false)
+  assert.equal(isInsideRadius(roubaix, 15), true)
+  assert.equal(offerLocality("Nantes - 44"), "Nantes")
+  assert.equal(offerLocality("44000 Nantes"), "Nantes")
+  assert.equal(offerLocality("Lille - 59"), "Lille")
+  assert.equal(offerLocality("59 - LYS LEZ LANNOY"), "LYS LEZ LANNOY")
 })
 
 test("zone labels start close to the city", () => {
