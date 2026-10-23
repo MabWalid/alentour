@@ -25,7 +25,7 @@ export const defaultProfile: Profile = {
   seeking: "",
   pitch: "",
   availability: "",
-  kinds: ["stage", "alternance", "job"],
+  kinds: ["stage", "alternance", "job", "junior"],
 }
 
 export type Draft = {

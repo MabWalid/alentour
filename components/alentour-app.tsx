@@ -47,7 +47,7 @@ type SearchPayload = {
   place: { city: string; label: string } | null
 }
 
-const KIND_ORDER: Kind[] = ["stage", "alternance", "job"]
+const KIND_ORDER: Kind[] = ["stage", "alternance", "job", "junior"]
 
 export function AlentourApp() {
   const store = useSyncExternalStore(subscribeStore, getClientStore, getServerStore)
@@ -247,7 +247,7 @@ export function AlentourApp() {
         <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">Pour toi, à 0 €</p>
         <h1 className="font-heading text-4xl leading-none text-foreground">Alentour</h1>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Stages, alternances et jobs étudiants. On commence par {store.profile.city || "ta ville"}, puis on s’éloigne seulement s’il le faut.
+          Stages, alternances, jobs étudiants et premiers emplois. On commence par {store.profile.city || "ta ville"}, puis on s’éloigne seulement s’il le faut.
         </p>
       </header>
 
@@ -325,7 +325,7 @@ export function AlentourApp() {
               )}
               {result.offers.length === 0 ? (
                 <Card className="p-4 text-sm text-muted-foreground">
-                  Rien en stage, alternance ou job étudiant pour « {store.profile.seeking || "cette recherche"} ». Change un mot, ou décoche un type trop strict.
+                  Rien en stage, alternance, job étudiant ou premier emploi pour « {store.profile.seeking || "cette recherche"} ». Change un mot, ou décoche un type trop strict.
                 </Card>
               ) : (
                 <ul className="space-y-2">
@@ -364,7 +364,7 @@ export function AlentourApp() {
                 </ul>
               )}
               <p className="text-xs text-muted-foreground">
-                Sources : La bonne alternance (alternance et entreprises à contacter) et France Travail (stages, alternances, jobs). Ouvre toujours l’annonce d’origine avant d’envoyer.
+                Sources lues : La bonne alternance, France Travail, LinkedIn, HelloWork et Free-Work. Indeed et Welcome to the Jungle ne laissent pas une liste publique stable, donc ils ne sont pas branchés. Ouvre toujours l’annonce d’origine avant d’envoyer.
               </p>
             </div>
           )}

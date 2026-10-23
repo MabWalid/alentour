@@ -3,17 +3,60 @@ import test from "node:test"
 import { buildDraft, defaultProfile } from "./draft"
 import { extractEmails } from "./emails"
 import { parseFranceTravailHtml } from "./francetravail"
+import { mapFreeWorkPosting } from "./freework"
+import { parseHelloWorkHtml } from "./hellowork"
+import { parseLinkedInHtml } from "./linkedin"
 import { decodeHtml } from "./html"
 import { classifyText, dedupeKey, matchesKinds, zoneLabel } from "./offers"
 import { isPrivateAddress } from "./ssrf"
 import { parseBackup } from "./storage"
 
-test("classify stages, alternance and student jobs", () => {
+test("classify stages, alternance, student jobs and first jobs", () => {
   assert.deepEqual(classifyText("Stage de vente à Lille"), ["stage"])
   assert.deepEqual(classifyText("Contrat d'apprentissage"), ["alternance"])
   assert.ok(classifyText("Étudiant, temps partiel").includes("job"))
+  assert.ok(classifyText("Premier emploi, jeune diplômé").includes("junior"))
   assert.equal(matchesKinds(["stage"], ["alternance", "job"]), false)
   assert.equal(matchesKinds(["job"], ["job"]), true)
+})
+
+test("public board cards keep title, company and city", () => {
+  const linkedin = parseLinkedInHtml(`
+    <div data-entity-urn="urn:li:jobPosting:4474283391">
+      <h3 class="base-search-card__title">Développeur Java - Stage</h3>
+      <h4 class="base-search-card__subtitle"><a href="https://fr.linkedin.com/company/nextoo">Nextoo</a></h4>
+      <span class="job-search-card__location">Roubaix</span>
+      <time class="job-search-card__listdate" datetime="2026-10-05"></time>
+    </div>`)
+  assert.equal(linkedin[0].id, "4474283391")
+  assert.equal(linkedin[0].organization, "Nextoo")
+  assert.equal(linkedin[0].city, "Roubaix")
+
+  const hello = parseHelloWorkHtml(`
+    <a href="/fr-fr/emplois/84025104.html"
+      aria-label="Voir offre de Développeur Fullstack - Stage H/F à Lille - 59, chez 314.talent, super recruteur, pour un Stage, en temps plein, 6 mois">
+    </a>`)
+  assert.equal(hello[0].id, "84025104")
+  assert.equal(hello[0].organization, "314.talent")
+  assert.equal(hello[0].city, "Lille - 59")
+  assert.match(hello[0].contract, /^Stage/)
+
+  const freework = mapFreeWorkPosting({
+    id: 12,
+    title: "Développeur Python",
+    slug: "developpeur-python",
+    description: "<p>Poste &agrave; Lille</p>",
+    experienceLevel: "junior",
+    contracts: ["permanent"],
+    company: { name: "Atelier" },
+    location: { shortLabel: "Lille" },
+    job: { slug: "developpeur-python-django" },
+    applicationContact: "jobs@atelier.fr",
+  })
+  assert.equal(freework?.source, "freework")
+  assert.ok(freework?.kinds.includes("junior"))
+  assert.equal(freework?.url, "https://www.free-work.com/fr/tech-it/job-mission/developpeur-python-django/developpeur-python")
+  assert.match(freework?.description ?? "", /jobs@atelier.fr/)
 })
 
 test("zone labels start close to the city", () => {
@@ -40,6 +83,7 @@ test("france travail cards keep the public fields", () => {
 
 test("html entities and public emails", () => {
   assert.equal(decodeHtml("D&eacute;fense &amp; S&eacute;curit&eacute;"), "Défense & Sécurité")
+  assert.equal(decodeHtml("Python &amp;amp; API"), "Python & API")
   assert.deepEqual(
     extractEmails("Écrire à contact@boulangerie.fr ou noreply@exemple.fr et logo@cdn.png"),
     ["contact@boulangerie.fr"],

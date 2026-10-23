@@ -1,6 +1,6 @@
 # Alentour
 
-Outil personnel pour chercher un **stage**, une **alternance** ou un **job étudiant** en partant d’une ville (Lille par défaut), puis en élargissant le rayon jusqu’à la France s’il n’y a plus rien près de chez toi.
+Outil personnel pour chercher un **stage**, une **alternance**, un **job étudiant** ou un **premier emploi** en partant d’une ville (Lille par défaut), puis en élargissant le rayon jusqu’à la France s’il n’y a plus rien près de chez toi.
 
 Pour chaque piste, Alentour prépare un **brouillon de mail**. Tu l’envoies toi-même. Les emails masqués par le recruteur ne sont pas récupérés : seulement ceux écrits dans l’annonce, le téléphone public, le lien pour postuler, et — si tu le demandes — les emails visibles sur la page d’accueil du site de l’entreprise.
 
@@ -10,6 +10,11 @@ Tout est gratuit, sans Apify et sans clé :
 
 - [La bonne alternance](https://labonnealternance.apprentissage.beta.gouv.fr) : alternances et entreprises à qui envoyer une candidature spontanée.
 - [France Travail](https://candidat.francetravail.fr) : stages, alternances et jobs publiés sur la recherche publique.
+- [LinkedIn](https://www.linkedin.com/jobs) : annonces invité, sans compte.
+- [HelloWork](https://www.hellowork.com) : stages et alternances (le rayon public reste d’environ 20 km).
+- [Free-Work](https://www.free-work.com) : stages et postes juniors, surtout en tech.
+
+Indeed bloque les lectures automatiques. Welcome to the Jungle ne publie pas une liste d’offres stable sans sa propre recherche. Beaucoup d’annonces de ces sites remontent déjà via France Travail.
 
 Chaque carte cite la source et renvoie vers l’annonce d’origine. Relis-la avant d’envoyer quoi que ce soit.
 

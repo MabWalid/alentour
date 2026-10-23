@@ -55,7 +55,15 @@ function asProfile(value: unknown): Profile {
 function asOffer(value: unknown): Offer | null {
   if (!value || typeof value !== "object") return null
   const offer = value as Partial<Offer>
-  if (offer.source !== "lba" && offer.source !== "francetravail") return null
+  if (
+    offer.source !== "lba" &&
+    offer.source !== "francetravail" &&
+    offer.source !== "linkedin" &&
+    offer.source !== "hellowork" &&
+    offer.source !== "freework"
+  ) {
+    return null
+  }
   if (typeof offer.id !== "string" || typeof offer.title !== "string") return null
   const kinds = Array.isArray(offer.kinds)
     ? offer.kinds.filter((kind): kind is Kind => typeof kind === "string" && isKind(kind))

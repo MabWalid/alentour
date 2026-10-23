@@ -1,8 +1,8 @@
-export const KINDS = ["stage", "alternance", "job"] as const
+export const KINDS = ["stage", "alternance", "job", "junior"] as const
 
 export type Kind = (typeof KINDS)[number]
 
-export type OfferSource = "lba" | "francetravail"
+export type OfferSource = "lba" | "francetravail" | "linkedin" | "hellowork" | "freework"
 
 export type Offer = {
   id: string
@@ -43,11 +43,15 @@ export const KIND_LABEL: Record<Kind, string> = {
   stage: "Stage",
   alternance: "Alternance",
   job: "Job étudiant",
+  junior: "Premier emploi",
 }
 
 export const SOURCE_LABEL: Record<OfferSource, string> = {
   lba: "La bonne alternance",
   francetravail: "France Travail",
+  linkedin: "LinkedIn",
+  hellowork: "HelloWork",
+  freework: "Free-Work",
 }
 
 export function isKind(value: string): value is Kind {
@@ -66,6 +70,9 @@ export function classifyText(text: string): Kind[] {
   if (/\bstages?\b|stagiaire/.test(value)) kinds.push("stage")
   if (/alternance|apprentissage|professionnalisation/.test(value)) {
     kinds.push("alternance")
+  }
+  if (/junior|débutant|debutant|premier emploi|nouveau dipl|jeune dipl|jeune diplom/.test(value)) {
+    kinds.push("junior")
   }
   const studentJob =
     /étudiant|etudiant|job étudiant|temps partiel|mi-temps|mi temps|saisonnier|vacation/.test(

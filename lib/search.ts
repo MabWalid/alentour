@@ -1,6 +1,9 @@
 import { searchFranceTravail } from "./francetravail"
+import { searchFreeWork } from "./freework"
 import { geocodeCity } from "./geocode"
+import { searchHelloWork } from "./hellowork"
 import { searchLba } from "./lba"
+import { searchLinkedIn } from "./linkedin"
 import {
   dedupeKey,
   matchesKinds,
@@ -33,6 +36,7 @@ function franceTravailQueries(query: string, kinds: Kind[]): string[] {
   if (kinds.includes("stage")) queries.push([base, "stage"].filter(Boolean).join(" "))
   if (kinds.includes("alternance")) queries.push([base, "alternance"].filter(Boolean).join(" "))
   if (kinds.includes("job")) queries.push([base, "étudiant"].filter(Boolean).join(" "))
+  if (kinds.includes("junior")) queries.push([base, "junior"].filter(Boolean).join(" "))
   return [...new Set(queries)]
 }
 
@@ -83,6 +87,12 @@ export async function searchOffers(input: {
           radiusKm: km != null && place ? km : undefined,
         }),
       )
+    }
+    if (km === 15 || km == null) {
+      const city = km != null && place ? place.city : null
+      tasks.push(searchLinkedIn({ query: input.query, city, kinds: input.kinds }))
+      tasks.push(searchHelloWork({ query: input.query, city, kinds: input.kinds }))
+      tasks.push(searchFreeWork({ query: input.query, city, kinds: input.kinds }))
     }
     const settled = await Promise.allSettled(tasks)
     settled.forEach((result) => {
