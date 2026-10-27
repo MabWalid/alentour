@@ -73,8 +73,8 @@ export function AlentourApp() {
   const [siteLoading, setSiteLoading] = useState(false)
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
+  const [today, setToday] = useState("")
   const booted = useRef(false)
-  const today = parisDay()
 
   const tracked = useMemo(
     () =>
@@ -94,7 +94,9 @@ export function AlentourApp() {
   useEffect(() => {
     if (booted.current) return
     booted.current = true
-    if (getClientStore().digest?.day === parisDay()) return
+    const day = parisDay(new Date())
+    setToday(day)
+    if (getClientStore().digest?.day === day) return
     void search()
   }, [])
 
@@ -129,7 +131,7 @@ export function AlentourApp() {
         return
       }
       const current = getClientStore()
-      const day = parisDay()
+      const day = parisDay(new Date())
       const memory = rememberSeen(current.seen, payload.offers, day)
       const digest: Digest = {
         day,
@@ -226,7 +228,7 @@ export function AlentourApp() {
             kinds: detail.kinds,
           }
         : offer
-    const day = parisDay()
+    const day = parisDay(new Date())
     const sentAt =
       status === "envoye" || status === "relance" ? previous?.sentAt || day : previous?.sentAt ?? null
     const next: Application = {

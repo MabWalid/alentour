@@ -3,7 +3,7 @@ import { offerLocality } from "./near"
 import type { Offer } from "./offers"
 import type { Application, ApplicationStatus } from "./storage"
 
-export function parisDay(date = new Date()): string {
+export function parisDay(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Paris",
     year: "numeric",
