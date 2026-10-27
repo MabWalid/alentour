@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Bookmark, Compass, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { buildDraft } from "@/lib/draft"
+import { buildDraft, buildRelance, pickCvLines } from "@/lib/draft"
+import { groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, suiviBilan } from "@/lib/prepare"
 import {
   KIND_LABEL,
   SOURCE_LABEL,
@@ -35,6 +36,7 @@ import {
   subscribeStore,
   type Application,
   type ApplicationStatus,
+  type Digest,
   type Store,
 } from "@/lib/storage"
 
@@ -62,7 +64,7 @@ export function AlentourApp() {
   const store = useSyncExternalStore(subscribeStore, getClientStore, getServerStore)
   const [tab, setTab] = useState<Tab>("pistes")
   const [searching, setSearching] = useState(false)
-  const [result, setResult] = useState<SearchPayload | null>(null)
+  const [liveResult, setLiveResult] = useState<SearchPayload | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Offer | null>(null)
   const [detail, setDetail] = useState<OfferDetail | null>(null)
@@ -71,6 +73,8 @@ export function AlentourApp() {
   const [siteLoading, setSiteLoading] = useState(false)
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
+  const booted = useRef(false)
+  const today = parisDay()
 
   const tracked = useMemo(
     () =>
@@ -79,6 +83,20 @@ export function AlentourApp() {
       ),
     [store.applications],
   )
+  const result = liveResult ?? (store.digest ? payloadFromDigest(store.digest) : null)
+  const balance = useMemo(() => suiviBilan(tracked, today), [tracked, today])
+  const due = tracked.filter((item) => relanceDue(item, today))
+  const prepared = tracked.filter((item) => item.status === "preparee")
+  const sent = tracked.filter((item) => item.status === "envoye" && !relanceDue(item, today))
+  const drafts = tracked.filter((item) => item.status === "brouillon" || item.status === "vu")
+  const dropped = tracked.filter((item) => item.status === "passe")
+
+  useEffect(() => {
+    if (booted.current) return
+    booted.current = true
+    if (getClientStore().digest?.day === parisDay()) return
+    void search()
+  }, [])
 
   function patchProfile(partial: Partial<Store["profile"]>) {
     setClientStore({ ...store, profile: { ...store.profile, ...partial } })
@@ -94,14 +112,15 @@ export function AlentourApp() {
   async function search() {
     setSearching(true)
     setSearchError(null)
+    const profile = getClientStore().profile
     try {
       const response = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: store.profile.seeking,
-          city: store.profile.city,
-          kinds: store.profile.kinds,
+          query: profile.seeking,
+          city: profile.city,
+          kinds: profile.kinds,
         }),
       })
       const payload = (await response.json()) as SearchPayload & { error?: string }
@@ -109,12 +128,56 @@ export function AlentourApp() {
         setSearchError(payload.error || "La recherche a échoué.")
         return
       }
-      setResult(payload)
+      const current = getClientStore()
+      const day = parisDay()
+      const memory = rememberSeen(current.seen, payload.offers, day)
+      const digest: Digest = {
+        day,
+        fetchedAt: payload.fetchedAt,
+        scopeLabel: payload.scopeLabel,
+        warnings: payload.warnings,
+        place: payload.place,
+        offers: payload.offers,
+      }
+      setClientStore({ ...current, seen: memory.seen, digest })
+      setLiveResult(payload)
+      if (memory.fresh > 0) {
+        toast.success(memory.fresh > 1 ? `${memory.fresh} nouvelles offres aujourd’hui.` : "1 nouvelle offre aujourd’hui.")
+      }
     } catch {
       setSearchError("Pas de réseau, ou le serveur ne répond pas.")
     } finally {
       setSearching(false)
     }
+  }
+
+  function prepareApplications() {
+    if (!result || result.offers.length === 0) return
+    const current = getClientStore()
+    const picks = rankForPreparation(current.profile, result.offers, current.applications)
+    if (picks.length === 0) {
+      toast("Ces offres sont déjà envoyées, relancées ou laissées de côté.")
+      return
+    }
+    const applications = { ...current.applications }
+    for (const offer of picks) {
+      const previous = applications[offer.id]
+      const highlight = previous?.highlight || pickCvLines(current.profile.cv, offer).join("\n")
+      const draft = buildDraft({ ...current.profile, cv: highlight || current.profile.cv }, offer)
+      applications[offer.id] = {
+        offer,
+        status: "preparee",
+        subject: draft.subject,
+        body: draft.body,
+        updatedAt: new Date().toISOString(),
+        sentAt: previous?.sentAt ?? null,
+        applyUrl: previous?.applyUrl || offer.url,
+        highlight,
+      }
+    }
+    setClientStore({ ...current, applications })
+    toast.success(`${picks.length} candidature${picks.length > 1 ? "s" : ""} préparée${picks.length > 1 ? "s" : ""}. Tu valides dans Suivi.`)
+    setTab("suivi")
   }
 
   function openOffer(offer: Offer) {
@@ -148,6 +211,8 @@ export function AlentourApp() {
   }
 
   function saveApplication(status: ApplicationStatus, offer: Offer) {
+    const current = getClientStore()
+    const previous = current.applications[offer.id]
     const snapshot: Offer =
       detail && detail.id === offer.id
         ? {
@@ -161,16 +226,22 @@ export function AlentourApp() {
             kinds: detail.kinds,
           }
         : offer
+    const day = parisDay()
+    const sentAt =
+      status === "envoye" || status === "relance" ? previous?.sentAt || day : previous?.sentAt ?? null
     const next: Application = {
       offer: snapshot,
       status,
       subject,
       body,
       updatedAt: new Date().toISOString(),
+      sentAt,
+      applyUrl: (detail && detail.id === offer.id ? detail.applyUrl : null) || previous?.applyUrl || snapshot.url,
+      highlight: previous?.highlight || pickCvLines(current.profile.cv, offer).join("\n"),
     }
     setClientStore({
-      ...store,
-      applications: { ...store.applications, [offer.id]: next },
+      ...current,
+      applications: { ...current.applications, [offer.id]: next },
     })
   }
 
@@ -301,7 +372,11 @@ export function AlentourApp() {
               disabled={searching}
               onClick={() => void search()}
             >
-              {searching ? "Je regarde autour, puis plus loin…" : `Chercher depuis ${city}`}
+              {searching
+                ? "Je regarde les nouvelles annonces…"
+                : store.digest?.day === today
+                  ? "Mettre à jour les offres"
+                  : "Charger les offres du jour"}
             </Button>
             <p className="text-xs leading-relaxed text-muted-foreground">
               Sans métier précis, je prends les offres proches. Les emails masqués par le recruteur restent masqués : je ne garde que ceux écrits publiquement, le téléphone, et le lien pour postuler.
@@ -324,11 +399,20 @@ export function AlentourApp() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {result.offers.length === 0
                       ? `Aucune piste, même ${result.scopeLabel}.`
-                      : `piste${result.offers.length > 1 ? "s" : ""} · ${result.scopeLabel}`}
+                      : `${result.offers.filter((offer) => store.seen[offer.id] === today).length} nouvelle${result.offers.filter((offer) => store.seen[offer.id] === today).length > 1 ? "s" : ""} · ${result.scopeLabel}`}
                   </p>
                 </div>
                 <p className="max-w-40 text-right text-xs text-muted-foreground">{result.fetchedAt}</p>
               </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-full rounded-2xl"
+                disabled={searching || result.offers.length === 0}
+                onClick={prepareApplications}
+              >
+                Préparer les candidatures à valider
+              </Button>
               {result.warnings.length > 0 && (
                 <Card className="bg-accent p-3 text-sm text-accent-foreground">
                   {result.warnings.join(" ")}
@@ -340,23 +424,31 @@ export function AlentourApp() {
                 </Card>
               ) : (
                 <div className="space-y-5">
-                  <OfferGroup
-                    title={`Autour de ${result.place?.city || city}`}
-                    offers={result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France")}
-                    applications={store.applications}
-                    onOpen={openOffer}
-                  />
+                  {groupByCity(result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France")).map((group) => (
+                    <OfferGroup
+                      key={group.city}
+                      title={group.city}
+                      note={`Autour de ${result.place?.city || city}`}
+                      offers={group.offers}
+                      applications={store.applications}
+                      seen={store.seen}
+                      today={today}
+                      onOpen={openOffer}
+                    />
+                  ))}
                   <OfferGroup
                     title="Plus loin en France"
                     note="Il n’y avait plus assez d’offres dans le rayon, alors la recherche a continué."
                     offers={result.offers.filter((offer) => offer.zoneLabel === "Ailleurs en France")}
                     applications={store.applications}
+                    seen={store.seen}
+                    today={today}
                     onOpen={openOffer}
                   />
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Sources lues : La bonne alternance, France Travail, LinkedIn, HelloWork et Free-Work. Indeed et Welcome to the Jungle ne laissent pas une liste publique stable, donc ils ne sont pas branchés. Ouvre toujours l’annonce d’origine avant d’envoyer.
+                Chaque jour, à l’ouverture, Alentour relit La bonne alternance, France Travail, LinkedIn, HelloWork et Free-Work. Indeed, Google et Welcome to the Jungle bloquent la lecture automatique : une partie de leurs annonces arrive déjà via France Travail. Rien n’est envoyé sans toi.
               </p>
             </div>
           )}
@@ -364,30 +456,24 @@ export function AlentourApp() {
       )}
 
       {tab === "suivi" && (
-        <section className="space-y-3 px-4 pt-4">
+        <section className="space-y-4 px-4 pt-4">
+          <div className="grid grid-cols-3 gap-2">
+            <Bilan label="À relancer" value={balance.relance} />
+            <Bilan label="Préparées" value={balance.preparee} />
+            <Bilan label="Envoyées" value={balance.envoyee} />
+          </div>
           {tracked.length === 0 ? (
             <Card className="p-4 text-sm text-muted-foreground">
-              Les offres que tu ouvres et les mails que tu prépares restent ici, sur cet appareil seulement.
+              Charge les offres du jour, puis prépare les candidatures. Tu approuves la lettre ici. Rien ne part tout seul.
             </Card>
           ) : (
-            <ul className="space-y-2">
-              {tracked.map((item) => (
-                <li key={item.offer.id}>
-                  <button
-                    type="button"
-                    className="w-full rounded-[1.25rem] border border-white/80 bg-card p-3 text-left shadow-[0_12px_30px_-22px_rgba(27,23,51,0.7)]"
-                    onClick={() => {
-                      setTab("pistes")
-                      openOffer(item.offer)
-                    }}
-                  >
-                    <Badge variant="secondary">{STATUS_LABEL[item.status]}</Badge>
-                    <p className="mt-2 font-medium">{item.offer.title}</p>
-                    <p className="text-sm text-muted-foreground">{item.offer.organization}</p>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4">
+              <SuiviGroup title="À relancer" items={due} onOpen={openOffer} />
+              <SuiviGroup title="À valider" items={prepared} onOpen={openOffer} />
+              <SuiviGroup title="Brouillons" items={drafts} onOpen={openOffer} />
+              <SuiviGroup title="Envoyées" items={sent} onOpen={openOffer} />
+              <SuiviGroup title="Laissées de côté" items={dropped} onOpen={openOffer} />
+            </div>
           )}
         </section>
       )}
@@ -412,6 +498,19 @@ export function AlentourApp() {
                 value={store.profile.availability}
                 onChange={(event) => patchProfile({ availability: event.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cv">Ton CV, collé en texte</Label>
+              <Textarea
+                id="cv"
+                className="min-h-36"
+                placeholder={"Une expérience par ligne.\nVente en magasin, 6 mois, Lille\nAccueil client et caisse"}
+                value={store.profile.cv}
+                onChange={(event) => patchProfile({ cv: event.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                La lettre choisit deux lignes qui collent à l’offre. Elle n’invente rien qui n’est pas écrit ici.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="pitch">Deux lignes sur toi</Label>
@@ -575,6 +674,11 @@ export function AlentourApp() {
                   Réécrire avec le profil
                 </Button>
               </div>
+              {store.applications[active.id]?.highlight && (
+                <p className="text-sm text-muted-foreground">
+                  Lignes du CV reprises : {store.applications[active.id].highlight}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => void copyDraft()}>
                   Copier
@@ -583,6 +687,21 @@ export function AlentourApp() {
                   Ouvrir le mail
                 </Button>
               </div>
+              {(savedStatus === "envoye" || savedStatus === "relance") && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 w-full rounded-2xl"
+                  onClick={() => {
+                    const sentOn = store.applications[active.id]?.sentAt ?? null
+                    const next = buildRelance(store.profile, detail ?? active, sentOn)
+                    setSubject(next.subject)
+                    setBody(next.body)
+                  }}
+                >
+                  Écrire la relance
+                </Button>
+              )}
               <div className="flex flex-wrap gap-2">
                 {(["vu", "envoye", "relance", "passe"] as ApplicationStatus[]).map((status) => (
                   <Button
@@ -614,8 +733,8 @@ function Hero({ tab, city, tracked }: { tab: Tab; city: string; tracked: number 
       ? `Stages, alternances, jobs étudiants et premiers emplois. D’abord ${city}, puis plus loin seulement s’il le faut.`
       : tab === "suivi"
         ? tracked === 0
-          ? "Les offres que tu prépares restent ici, sur cet appareil seulement."
-          : `${tracked} candidature${tracked > 1 ? "s" : ""} gardée${tracked > 1 ? "s" : ""} sur ce téléphone.`
+          ? "Les lettres préparées et les relances restent ici, sur cet appareil seulement."
+          : `${tracked} candidature${tracked > 1 ? "s" : ""} sur ce téléphone. Les relances arrivent 7 jours après l’envoi.`
         : "Ces infos écrivent tes mails. Elles restent dans ce navigateur : un pote qui ouvre Alentour part de zéro."
 
   return (
@@ -626,17 +745,75 @@ function Hero({ tab, city, tracked }: { tab: Tab; city: string; tracked: number 
   )
 }
 
+function payloadFromDigest(digest: Digest): SearchPayload {
+  return {
+    offers: digest.offers,
+    warnings: digest.warnings,
+    fetchedAt: digest.fetchedAt,
+    scopeLabel: digest.scopeLabel,
+    place: digest.place,
+  }
+}
+
+function Bilan({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="gap-0 rounded-2xl p-3 text-center">
+      <p className="font-heading text-3xl leading-none">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    </Card>
+  )
+}
+
+function SuiviGroup({
+  title,
+  items,
+  onOpen,
+}: {
+  title: string
+  items: Application[]
+  onOpen: (offer: Offer) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className="space-y-2">
+      <h2 className="px-1 font-heading text-xl tracking-tight">{title}</h2>
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li key={item.offer.id}>
+            <button
+              type="button"
+              className="w-full rounded-[1.25rem] border border-white/80 bg-card p-3 text-left shadow-[0_12px_30px_-22px_rgba(27,23,51,0.7)]"
+              onClick={() => onOpen(item.offer)}
+            >
+              <Badge variant="secondary">{STATUS_LABEL[item.status]}</Badge>
+              <p className="mt-2 font-medium">{item.offer.title}</p>
+              <p className="text-sm text-muted-foreground">
+                {[item.offer.organization, item.offer.city].filter(Boolean).join(" · ")}
+                {item.sentAt ? ` · envoyée le ${item.sentAt.split("-").reverse().join("/")}` : ""}
+              </p>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function OfferGroup({
   title,
   note,
   offers,
   applications,
+  seen,
+  today,
   onOpen,
 }: {
   title: string
   note?: string
   offers: Offer[]
   applications: Store["applications"]
+  seen: Record<string, string>
+  today: string
   onOpen: (offer: Offer) => void
 }) {
   if (offers.length === 0) return null
@@ -674,6 +851,9 @@ function OfferGroup({
                     <Badge variant="outline" className="rounded-full">
                       Spontanée
                     </Badge>
+                  )}
+                  {seen[offer.id] === today && (
+                    <Badge className="rounded-full">Nouvelle</Badge>
                   )}
                   {applications[offer.id] && (
                     <Badge className="rounded-full">{STATUS_LABEL[applications[offer.id].status]}</Badge>

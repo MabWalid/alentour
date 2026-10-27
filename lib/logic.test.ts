@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildDraft, defaultProfile } from "./draft"
+import { buildDraft, buildRelance, defaultProfile, pickCvLines } from "./draft"
+import { addDays, groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen } from "./prepare"
 import { extractEmails } from "./emails"
 import { parseFranceTravailApply, parseFranceTravailHtml } from "./francetravail"
 import { helloWorkApplyUrl } from "./hellowork"
@@ -173,6 +174,47 @@ test("private addresses stay blocked", () => {
   assert.equal(isPrivateAddress("169.254.169.254"), true)
   assert.equal(isPrivateAddress("8.8.8.8"), false)
   assert.equal(isPrivateAddress("::1"), true)
+})
+
+test("daily memory, city groups, cv lines and relance dates", () => {
+  const offer = {
+    id: "ft:2",
+    source: "francetravail" as const,
+    externalId: "2",
+    title: "Vendeur stage",
+    organization: "Brice",
+    city: "Lille - 59",
+    contract: "Stage",
+    description: "Accueil client en magasin à Lille, caisse et mise en rayon.",
+    url: "https://example.com/offre",
+    kinds: ["stage" as const],
+    spontaneous: false,
+    zoneLabel: "Lille et tout près",
+    zoneRank: 0,
+    distanceKm: 2,
+    published: null,
+  }
+  const profile = {
+    ...defaultProfile,
+    seeking: "vendeur",
+    cv: "Accueil client et caisse en magasin pendant six mois.\nProjet scolaire de comptabilité sans lien.",
+  }
+  const lines = pickCvLines(profile.cv, offer)
+  assert.equal(lines[0]?.includes("Accueil client"), true)
+  const draft = buildDraft(profile, offer)
+  assert.match(draft.body, /Accueil client/)
+  assert.match(draft.body, /L’annonce précise/)
+  const memory = rememberSeen({}, [offer], "2026-10-27")
+  assert.equal(memory.fresh, 1)
+  assert.equal(rememberSeen(memory.seen, [offer], "2026-10-28").fresh, 0)
+  assert.equal(groupByCity([offer])[0].city, "Lille")
+  const ranked = rankForPreparation(profile, [offer], {})
+  assert.equal(ranked[0]?.id, "ft:2")
+  assert.equal(relanceDue({ status: "envoye", sentAt: "2026-10-20" }, "2026-10-27"), true)
+  assert.equal(relanceDue({ status: "envoye", sentAt: "2026-10-26" }, "2026-10-27"), false)
+  assert.equal(addDays("2026-10-27", 7), "2026-11-03")
+  assert.match(buildRelance(profile, offer, "2026-10-20").body, /20 octobre/)
+  assert.equal(parisDay(new Date("2026-10-27T23:30:00.000Z")), "2026-10-28")
 })
 
 test("backup import keeps one person's profile", () => {

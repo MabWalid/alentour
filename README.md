@@ -4,6 +4,8 @@ Outil personnel pour chercher un **stage**, une **alternance**, un **job étudia
 
 Pour chaque piste, Alentour prépare un **brouillon de mail**. Tu l’envoies toi-même. Les emails masqués par le recruteur ne sont pas récupérés : seulement ceux écrits dans l’annonce, le téléphone public, le lien pour postuler, et — si tu le demandes — les emails visibles sur la page d’accueil du site de l’entreprise.
 
+À l’ouverture, si la liste date d’un autre jour, Alentour recharge les annonces et marque les nouvelles. Tu peux coller ton CV : la lettre reprend deux lignes qui correspondent à l’offre, sans en inventer. Le bouton **Préparer les candidatures** met de côté celles qui collent le mieux. Dans **Suivi**, tu modifies la lettre, tu ouvres le lien pour postuler, et une relance est proposée 7 jours après l’envoi. Rien n’est envoyé sans toi.
+
 ## D’où viennent les offres
 
 Tout est gratuit, sans Apify et sans clé :
