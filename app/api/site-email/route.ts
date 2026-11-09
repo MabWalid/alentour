@@ -1,5 +1,7 @@
 import { readPublicEmails } from "@/lib/site-email"
 
+export const maxDuration = 10
+
 export async function POST(request: Request) {
   let body: unknown
   try {

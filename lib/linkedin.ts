@@ -1,7 +1,7 @@
 import { extractEmails } from "./emails"
 import { decodeHtml } from "./html"
 import { fetchExternal } from "./http"
-import { classifyText, type Kind, type Offer, type OfferDetail } from "./offers"
+import { classifyText, isClosedApplyUrl, type Kind, type Offer, type OfferDetail } from "./offers"
 
 const GUEST_SEARCH = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
 const GUEST_JOB = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting"
@@ -87,15 +87,9 @@ async function fetchLinkedInCards(keywords: string, location: string, hint: Kind
   url.searchParams.set("keywords", keywords)
   url.searchParams.set("location", location)
   url.searchParams.set("start", "0")
-  let response = await fetchExternal(url.toString(), {
+  const response = await fetchExternal(url.toString(), {
     headers: { Accept: "text/html", "User-Agent": BROWSER_UA },
   })
-  if (response.status === 429) {
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-    response = await fetchExternal(url.toString(), {
-      headers: { Accept: "text/html", "User-Agent": BROWSER_UA },
-    })
-  }
   if (!response.ok) throw new Error(`LinkedIn a répondu ${response.status}.`)
   const html = await response.text()
   return parseLinkedInHtml(html).flatMap((hit) => {
@@ -133,7 +127,9 @@ export function linkedInApplyUrl(html: string, fallback: string): string {
     /<a\b[^>]*href="(https:[^"]+)"[^>]*apply-link-offsite|<a\b[^>]*apply-link-offsite[^>]*href="(https:[^"]+)"/i,
   )
   const href = match?.[1] || match?.[2]
-  return href ? decodeHtml(href) : fallback
+  if (!href) return fallback
+  const decoded = decodeHtml(href)
+  return isClosedApplyUrl(decoded) ? fallback : decoded
 }
 
 export async function fetchLinkedInDetail(offer: Offer): Promise<OfferDetail> {

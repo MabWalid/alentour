@@ -19,7 +19,7 @@ export async function readPublicEmails(rawUrl: string): Promise<{ emails: string
     const response = await fetch(url, {
       redirect: "manual",
       cache: "no-store",
-      signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(4_000),
       headers: {
         "User-Agent": EXTERNAL_USER_AGENT,
         Accept: "text/html,text/plain;q=0.9",

@@ -5,6 +5,8 @@ import { fetchLbaDetail } from "@/lib/lba"
 import { fetchLinkedInDetail } from "@/lib/linkedin"
 import type { Offer, OfferSource } from "@/lib/offers"
 
+export const maxDuration = 10
+
 const SOURCES: OfferSource[] = ["lba", "francetravail", "linkedin", "hellowork", "freework"]
 
 export async function POST(request: Request) {

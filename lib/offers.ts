@@ -86,6 +86,33 @@ export function matchesKinds(offerKinds: Kind[], selected: Kind[]): boolean {
   return offerKinds.some((kind) => selected.includes(kind))
 }
 
+export function isTrainingListing(offer: Pick<Offer, "title" | "organization" | "description" | "contract">): boolean {
+  const title = offer.title.toLowerCase()
+  const blob = `${offer.title}\n${offer.organization}\n${offer.contract}\n${offer.description}`.toLowerCase()
+  if (/\b(cfa|c\.f\.a|centre de formation|organisme de formation|titre rncp|\brncp\b)\b/.test(blob)) {
+    return true
+  }
+  if (/^formation\b/.test(title.trim())) return true
+  if (/\bformation\b/.test(title) && /(alternance|apprentissage|contrat pro)/.test(title)) return true
+  return false
+}
+
+export function isClosedApplyUrl(url: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return true
+  }
+  const href = parsed.href.toLowerCase()
+  const host = parsed.hostname.toLowerCase()
+  if (!/^https?:$/.test(parsed.protocol)) return true
+  if (/(^|\.)linkedin\.com$/.test(host) && /\/signup|\/authwall|\/uas\/|\/login|checkpoint|cold-join|session_redirect=/.test(href)) {
+    return true
+  }
+  return false
+}
+
 export function dedupeKey(offer: Pick<Offer, "title" | "organization">): string {
   const title = offer.title.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 48)
   const organization = offer.organization
