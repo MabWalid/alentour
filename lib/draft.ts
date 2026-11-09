@@ -23,11 +23,11 @@ export const defaultProfile: Profile = {
   city: "Lille",
   school: "",
   level: "",
-  seeking: "",
+  seeking: "développeur",
   pitch: "",
   availability: "",
   cv: "",
-  kinds: ["stage", "alternance", "job", "junior"],
+  kinds: ["stage", "alternance"],
 }
 
 export type Draft = {
