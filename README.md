@@ -66,6 +66,10 @@ Aucune variable d’environnement applicative n’est requise.
 - Export / import JSON depuis l’onglet Profil (ne pas versionner ce fichier)
 - Page de transparence : [`/confidentialite`](./app/confidentialite/page.tsx)
 
+## Support
+
+Les questions, bugs et propositions passent par les [issues GitHub](https://github.com/MabWalid/alentour/issues). Pas de SLA : le projet reste personnel, les réponses se font selon la disponibilité.
+
 ## Licence
 
-Projet personnel, usage à vos risques. Pas de licence open-source ni de support utilisateur.
+Distribué sous licence [MIT](./LICENSE). Toute copie doit conserver la notice de copyright. Le logiciel est fourni « tel quel », sans garantie.
