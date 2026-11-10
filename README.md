@@ -1,32 +1,49 @@
 # Alentour
 
-Outil personnel pour chercher un **stage**, une **alternance**, un **job étudiant** ou un **premier emploi** en partant d’une ville (Lille par défaut), puis en élargissant le rayon jusqu’à la France s’il n’y a plus rien près de chez toi.
+Application TypeScript pour centraliser une recherche de **stage**, **alternance**, **job étudiant** ou **premier emploi** à partir d’une ville, puis élargir le rayon uniquement si le vivier local est insuffisant.
 
-Pour chaque piste, Alentour prépare un **brouillon de mail**. Tu l’envoies toi-même. Les emails masqués par le recruteur ne sont pas récupérés : seulement ceux écrits dans l’annonce, le téléphone public, le lien pour postuler, et — si tu le demandes — les emails visibles sur la page d’accueil du site de l’entreprise.
+Le projet est un outil personnel. Il agrège des offres publiques, prépare un brouillon de candidature côté client, et n’envoie aucun message à la place de l’utilisateur.
 
-À l’ouverture, si la liste date d’un autre jour, Alentour recharge les annonces et marque les nouvelles. Tu peux coller ton CV : la lettre reprend deux lignes qui correspondent à l’offre, sans en inventer. Le bouton **Préparer les candidatures** met de côté celles qui collent le mieux. Dans **Suivi**, tu modifies la lettre, tu ouvres le lien pour postuler, et une relance est proposée 7 jours après l’envoi. Rien n’est envoyé sans toi.
+![Aperçu d’Alentour](docs/demo.jpg)
 
-## D’où viennent les offres
+## Fonctionnalités
 
-Tout est gratuit, sans Apify et sans clé :
+- Recherche multi-sources avec expansion progressive du rayon géographique
+- Classement des offres du jour : nouvelles d’abord, déjà vues ensuite
+- Extraction des contacts **déjà publics** (email écrit, téléphone, lien de candidature)
+- Génération d’un brouillon de mail à partir du profil et de deux extraits du CV collé, sans invention de contenu
+- Suivi local des candidatures et rappel de relance à 7 jours
+- Profil, CV, brouillons et historique stockés dans `localStorage` (aucune base utilisateur)
 
-- [La bonne alternance](https://labonnealternance.apprentissage.beta.gouv.fr) : alternances et entreprises à qui envoyer une candidature spontanée.
-- [France Travail](https://candidat.francetravail.fr) : stages, alternances et jobs publiés sur la recherche publique.
-- [LinkedIn](https://www.linkedin.com/jobs) : annonces invité, sans compte.
-- [HelloWork](https://www.hellowork.com) : stages et alternances (le rayon public reste d’environ 20 km).
-- [Free-Work](https://www.free-work.com) : stages et postes juniors, surtout en tech.
+## Architecture
 
-Indeed bloque les lectures automatiques. Welcome to the Jungle ne publie pas une liste d’offres stable sans sa propre recherche. Beaucoup d’annonces de ces sites remontent déjà via France Travail.
+| Couche | Rôle |
+| --- | --- |
+| `app/` | Interface Next.js et routes API (`/api/search`, `/api/offer`, `/api/site-email`) |
+| `lib/` | Agrégation des sources, scoring, SSRF, quotas, persistance navigateur |
+| `components/` | UI métier (recherche, fiches, suivi, profil) |
 
-Chaque carte cite la source et renvoie vers l’annonce d’origine. Relis-la avant d’envoyer quoi que ce soit.
+Le navigateur n’envoie au serveur que le métier, la ville et les types d’offres. Le CV et les coordonnées restent sur l’appareil. Les routes API sont publiques, limitées en débit, et n’acceptent pas d’URL cliente arbitraire pour le détail HelloWork.
 
-## Tes données restent à toi
+## Stack
 
-Le profil, les brouillons et le suivi sont dans le **navigateur de l’appareil** (`localStorage`). Ils ne sont pas stockés dans une base Alentour. La recherche envoie métier, ville et types d’offres au serveur, qui interroge des sites publics. Détail : [/confidentialite](https://alentour-tau.vercel.app/confidentialite).
+- TypeScript, React 19, Next.js
+- Routes serveur sans clé tierce (sources publiques uniquement)
+- Tests `node:test` (`lib/logic.test.ts`)
 
-Un ami qui ouvre le même site part d’un profil vide. Pour passer d’un téléphone à un autre, utilise **Exporter / Importer** dans Profil. Ne commite pas ce fichier : il contient tes coordonnées.
+## Sources d’offres
 
-## Lancer en local
+| Source | Usage |
+| --- | --- |
+| [La bonne alternance](https://labonnealternance.apprentissage.beta.gouv.fr) | Alternances et candidatures spontanées |
+| [France Travail](https://candidat.francetravail.fr) | Annonces publiques |
+| [LinkedIn](https://www.linkedin.com/jobs) | Cartes invité |
+| [HelloWork](https://www.hellowork.com) | Stages et alternances |
+| [Free-Work](https://www.free-work.com) | Stages et profils juniors |
+
+Indeed et Welcome to the Jungle ne sont pas interrogés : leur listing n’est pas exploitable proprement. Une partie de leurs offres remonte déjà via France Travail. Chaque carte conserve le lien vers l’annonce d’origine.
+
+## Démarrage
 
 ```bash
 npm install
@@ -34,17 +51,21 @@ npm test
 npm run dev
 ```
 
-Ouvre [http://127.0.0.1:3000](http://127.0.0.1:3000). Pour un autre port : `npm run dev -- -p 43123`.
+Interface locale : [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Le mettre sur ton téléphone, à 0 €
+```bash
+npm run build
+npm start
+```
 
-1. Crée le dépôt GitHub de ce projet (bouton **Create repo** dans Cursor si le projet n’est pas encore sur ton compte).
-2. Va sur [vercel.com](https://vercel.com), connecte ce dépôt, laisse les réglages Next.js, et déploie. Le plan Hobby suffit, sans variable d’environnement.
-3. Ouvre l’adresse Vercel dans Safari ou Chrome sur le téléphone.
-4. **Ajouter à l’écran d’accueil**. Alentour s’ouvre comme une app.
+Aucune variable d’environnement applicative n’est requise.
 
-## Ce que l’app ne fait pas
+## Données
 
-- Elle n’envoie aucun mail toute seule.
-- Elle ne contourne pas un email que France Travail ou La bonne alternance a choisi de masquer.
-- Elle ne mélange pas les profils de plusieurs personnes.
+- Stockage local : clé `alentour.v1`
+- Export / import JSON depuis l’onglet Profil (ne pas versionner ce fichier)
+- Page de transparence : [`/confidentialite`](./app/confidentialite/page.tsx)
+
+## Licence
+
+Projet personnel, usage à vos risques. Pas de licence open-source ni de support utilisateur.
