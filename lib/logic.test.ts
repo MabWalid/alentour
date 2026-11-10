@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { buildDraft, buildRelance, defaultProfile, pickCvLines } from "./draft"
-import { addDays, groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen } from "./prepare"
+import { addDays, groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, splitByFreshness } from "./prepare"
 import { extractEmails } from "./emails"
 import { parseFranceTravailApply, parseFranceTravailHtml } from "./francetravail"
 import { helloWorkApplyUrl } from "./hellowork"
@@ -208,6 +208,15 @@ test("daily memory, city groups, cv lines and relance dates", () => {
   assert.equal(memory.fresh, 1)
   assert.equal(rememberSeen(memory.seen, [offer], "2026-10-28").fresh, 0)
   assert.equal(groupByCity([offer])[0].city, "Lille")
+  const seenToday = { [offer.id]: "2026-10-27", "old:1": "2026-10-20" }
+  const split = splitByFreshness(
+    [offer, { ...offer, id: "old:1", city: "Roubaix" }],
+    seenToday,
+    "2026-10-27",
+  )
+  assert.deepEqual(split.fresh.map((item) => item.id), ["ft:2"])
+  assert.deepEqual(split.older.map((item) => item.id), ["old:1"])
+  assert.equal(splitByFreshness([offer], {}, "").fresh.length, 1)
   const ranked = rankForPreparation(profile, [offer], {})
   assert.equal(ranked[0]?.id, "ft:2")
   assert.equal(relanceDue({ status: "envoye", sentAt: "2026-10-20" }, "2026-10-27"), true)
