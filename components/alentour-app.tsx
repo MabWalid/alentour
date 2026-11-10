@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { buildDraft, buildRelance, pickCvLines } from "@/lib/draft"
-import { groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, suiviBilan } from "@/lib/prepare"
+import { groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, splitByFreshness, suiviBilan } from "@/lib/prepare"
 import {
   KIND_LABEL,
   SOURCE_LABEL,
@@ -132,6 +132,7 @@ export function AlentourApp() {
       }
       const current = getClientStore()
       const day = parisDay(new Date())
+      setToday(day)
       const memory = rememberSeen(current.seen, payload.offers, day)
       const digest: Digest = {
         day,
@@ -156,6 +157,19 @@ export function AlentourApp() {
   function prepareApplications() {
     if (!result || result.offers.length === 0) return
     const current = getClientStore()
+    const missingName = current.profile.firstName.trim().length === 0
+    const missingCv = current.profile.cv.trim().length === 0
+    if (missingName || missingCv) {
+      setTab("profil")
+      toast(
+        missingName && missingCv
+          ? "Ajoute ton prénom et colle ton CV. La lettre s’en sert, elle n’invente pas un nom."
+          : missingName
+            ? "Ajoute ton prénom avant de préparer les lettres."
+            : "Colle ton CV avant de préparer les lettres.",
+      )
+      return
+    }
     const picks = rankForPreparation(current.profile, result.offers, current.applications)
     if (picks.length === 0) {
       toast("Ces offres sont déjà envoyées, relancées ou laissées de côté.")
@@ -376,7 +390,7 @@ export function AlentourApp() {
             >
               {searching
                 ? "Je regarde les nouvelles annonces…"
-                : store.digest?.day === today
+                : today && store.digest?.day === today
                   ? "Mettre à jour les offres"
                   : "Charger les offres du jour"}
             </Button>
@@ -415,6 +429,11 @@ export function AlentourApp() {
               >
                 Préparer les candidatures à valider
               </Button>
+              {(!store.profile.firstName.trim() || !store.profile.cv.trim()) && (
+                <p className="text-xs text-muted-foreground">
+                  Avant de préparer : prénom et CV dans Profil. Sinon la lettre n’a pas ton nom.
+                </p>
+              )}
               {result.warnings.length > 0 && (
                 <Card className="bg-accent p-3 text-sm text-accent-foreground">
                   {result.warnings.join(" ")}
@@ -425,23 +444,52 @@ export function AlentourApp() {
                   Rien en stage, alternance, job étudiant ou premier emploi pour « {store.profile.seeking || "cette recherche"} ». Change un mot, ou décoche un type trop strict.
                 </Card>
               ) : (
-                <div className="space-y-5">
-                  {groupByCity(result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France")).map((group) => (
-                    <OfferGroup
-                      key={group.city}
-                      title={group.city}
-                      note={`Autour de ${result.place?.city || city}`}
-                      offers={group.offers}
-                      applications={store.applications}
-                      seen={store.seen}
-                      today={today}
-                      onOpen={openOffer}
-                    />
-                  ))}
-                  <OfferGroup
-                    title="Plus loin en France"
+                <div className="space-y-8">
+                  <OfferBands
+                    title="Nouvelles"
+                    note={`Autour de ${result.place?.city || city}`}
+                    offers={splitByFreshness(
+                      result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France"),
+                      store.seen,
+                      today,
+                    ).fresh}
+                    applications={store.applications}
+                    seen={store.seen}
+                    today={today}
+                    onOpen={openOffer}
+                  />
+                  <OfferBands
+                    title="Déjà vues"
+                    offers={splitByFreshness(
+                      result.offers.filter((offer) => offer.zoneLabel !== "Ailleurs en France"),
+                      store.seen,
+                      today,
+                    ).older}
+                    applications={store.applications}
+                    seen={store.seen}
+                    today={today}
+                    onOpen={openOffer}
+                  />
+                  <OfferBands
+                    title="Plus loin, nouvelles"
                     note="Il n’y avait plus assez d’offres dans le rayon, alors la recherche a continué."
-                    offers={result.offers.filter((offer) => offer.zoneLabel === "Ailleurs en France")}
+                    offers={splitByFreshness(
+                      result.offers.filter((offer) => offer.zoneLabel === "Ailleurs en France"),
+                      store.seen,
+                      today,
+                    ).fresh}
+                    applications={store.applications}
+                    seen={store.seen}
+                    today={today}
+                    onOpen={openOffer}
+                  />
+                  <OfferBands
+                    title="Plus loin, déjà vues"
+                    offers={splitByFreshness(
+                      result.offers.filter((offer) => offer.zoneLabel === "Ailleurs en France"),
+                      store.seen,
+                      today,
+                    ).older}
                     applications={store.applications}
                     seen={store.seen}
                     today={today}
@@ -798,6 +846,43 @@ function SuiviGroup({
         ))}
       </ul>
     </section>
+  )
+}
+
+function OfferBands({
+  title,
+  note,
+  offers,
+  applications,
+  seen,
+  today,
+  onOpen,
+}: {
+  title: string
+  note?: string
+  offers: Offer[]
+  applications: Store["applications"]
+  seen: Record<string, string>
+  today: string
+  onOpen: (offer: Offer) => void
+}) {
+  if (offers.length === 0) return null
+  return (
+    <div className="space-y-4">
+      <h2 className="px-1 font-heading text-2xl tracking-tight">{title}</h2>
+      {groupByCity(offers).map((group, index) => (
+        <OfferGroup
+          key={`${title}-${group.city}`}
+          title={group.city}
+          note={index === 0 ? note : undefined}
+          offers={group.offers}
+          applications={applications}
+          seen={seen}
+          today={today}
+          onOpen={onOpen}
+        />
+      ))}
+    </div>
   )
 }
 

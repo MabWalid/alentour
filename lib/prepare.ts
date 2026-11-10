@@ -47,6 +47,21 @@ export function rememberSeen(
   return { seen: Object.fromEntries(entries.slice(entries.length - 400)), fresh }
 }
 
+export function splitByFreshness(
+  offers: Offer[],
+  seen: Record<string, string>,
+  today: string,
+): { fresh: Offer[]; older: Offer[] } {
+  if (!today) return { fresh: offers, older: [] }
+  const fresh: Offer[] = []
+  const older: Offer[] = []
+  for (const offer of offers) {
+    if (seen[offer.id] === today) fresh.push(offer)
+    else older.push(offer)
+  }
+  return { fresh, older }
+}
+
 export function groupByCity(offers: Offer[]): { city: string; offers: Offer[] }[] {
   const groups = new Map<string, Offer[]>()
   for (const offer of offers) {
