@@ -4,15 +4,16 @@ import { buildDraft, buildRelance, defaultProfile, pickCvLines } from "./draft"
 import { addDays, groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, splitByFreshness } from "./prepare"
 import { extractEmails, isFakeEmail } from "./emails"
 import { parseFranceTravailApply, parseFranceTravailHtml } from "./francetravail"
-import { helloWorkApplyUrl } from "./hellowork"
+import { helloWorkApplyUrl, helloWorkPublicUrl } from "./hellowork"
 import { linkedInApplyUrl } from "./linkedin"
 import { mapFreeWorkPosting } from "./freework"
 import { parseHelloWorkHtml } from "./hellowork"
 import { parseLinkedInHtml } from "./linkedin"
 import { decodeHtml } from "./html"
 import { haversineKm, isInsideRadius, offerLocality } from "./near"
-import { classifyText, dedupeKey, isClosedApplyUrl, isTrainingListing, matchesKinds, zoneLabel } from "./offers"
-import { isPrivateAddress } from "./ssrf"
+import { classifyText, dedupeKey, isClosedApplyUrl, isTrainingListing, matchesKinds, parseOfferRequest, zoneLabel } from "./offers"
+import { allowRequest } from "./rate-limit"
+import { assertPublicUrl, isPrivateAddress, parseHttpUrl } from "./ssrf"
 import { parseBackup } from "./storage"
 
 test("classify stages, alternance, student jobs and first jobs", () => {
@@ -182,12 +183,30 @@ test("draft uses the profile and does not invent a recipient", () => {
   assert.equal(draft.body.includes("@"), false)
 })
 
-test("private addresses stay blocked", () => {
+test("private addresses stay blocked", async () => {
   assert.equal(isPrivateAddress("127.0.0.1"), true)
   assert.equal(isPrivateAddress("10.1.2.3"), true)
   assert.equal(isPrivateAddress("169.254.169.254"), true)
+  assert.equal(isPrivateAddress("0.0.0.0"), true)
   assert.equal(isPrivateAddress("8.8.8.8"), false)
   assert.equal(isPrivateAddress("::1"), true)
+  assert.equal(isPrivateAddress("::"), true)
+  assert.equal(isPrivateAddress("ff02::1"), true)
+  assert.equal(isPrivateAddress("fc00::1"), true)
+  assert.equal(isPrivateAddress("64:ff9b::10.0.0.1"), true)
+  assert.equal(isPrivateAddress("::ffff:127.0.0.1"), true)
+  await assert.rejects(() => assertPublicUrl("http://127.0.0.1/"))
+  await assert.rejects(() => assertPublicUrl("http://localhost/admin"))
+  await assert.rejects(() => assertPublicUrl("file:///etc/passwd"))
+  assert.throws(() => parseHttpUrl("javascript:alert(1)"))
+  assert.equal(helloWorkPublicUrl("84025104"), "https://www.hellowork.com/fr-fr/emplois/84025104.html")
+  assert.throws(() => helloWorkPublicUrl("https://example.com"))
+  assert.equal(parseOfferRequest({ source: "hellowork", externalId: "1", url: "http://127.0.0.1" })?.url, "")
+  assert.equal(parseOfferRequest({ source: "hellowork", externalId: "https://evil.example" }), null)
+  assert.equal(parseOfferRequest({ source: "lba", externalId: "abc" }), null)
+  assert.ok(allowRequest("test-limit", 2, 60_000))
+  assert.ok(allowRequest("test-limit", 2, 60_000))
+  assert.equal(allowRequest("test-limit", 2, 60_000), false)
 })
 
 test("daily memory, city groups, cv lines and relance dates", () => {

@@ -1,22 +1,24 @@
+import { jsonError, publicMessage, readJsonBody } from "@/lib/api"
+import { allowRequest, clientKey, tooManyRequests } from "@/lib/rate-limit"
 import { readPublicEmails } from "@/lib/site-email"
 
 export const maxDuration = 10
 
 export async function POST(request: Request) {
+  if (!allowRequest(clientKey(request, "site-email"), 6, 60_000)) return tooManyRequests()
   let body: unknown
   try {
-    body = await request.json()
-  } catch {
-    return Response.json({ error: "Requête illisible." }, { status: 400 })
+    body = await readJsonBody(request, 2_000)
+  } catch (error) {
+    return jsonError(publicMessage(error, "Requête illisible."), 400)
   }
   const url = (body as { url?: unknown })?.url
   if (typeof url !== "string" || url.length > 500) {
-    return Response.json({ error: "Pas de site à lire." }, { status: 400 })
+    return jsonError("Pas de site à lire.", 400)
   }
   try {
     return Response.json(await readPublicEmails(url))
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Lecture du site impossible."
-    return Response.json({ error: message }, { status: 422 })
+    return jsonError(publicMessage(error, "Lecture du site impossible."), 422)
   }
 }

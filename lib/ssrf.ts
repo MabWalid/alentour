@@ -7,7 +7,7 @@ function ipv4Private(host: string): boolean {
     return false
   }
   const [a, b] = parts
-  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 0 || a === 10 || a === 127 || a === 255) return true
   if (a === 169 && b === 254) return true
   if (a === 172 && b >= 16 && b <= 31) return true
   if (a === 192 && b === 168) return true
@@ -15,11 +15,31 @@ function ipv4Private(host: string): boolean {
   return false
 }
 
+function ipv4FromNat64(host: string): string | null {
+  const dotted = host.match(/^64:ff9b::(\d+\.\d+\.\d+\.\d+)$/i)
+  if (dotted) return dotted[1]
+  const hex = host.match(/^64:ff9b::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
+  if (!hex) return null
+  const high = Number.parseInt(hex[1], 16)
+  const low = Number.parseInt(hex[2], 16)
+  return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`
+}
+
 export function isPrivateAddress(address: string): boolean {
   const host = address.toLowerCase().replace(/^\[|\]$/g, "")
-  if (host === "::1" || host === "0:0:0:0:0:0:0:1") return true
-  if (host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return true
+  if (
+    host === "::" ||
+    host === "::1" ||
+    host === "0:0:0:0:0:0:0:0" ||
+    host === "0:0:0:0:0:0:0:1"
+  ) {
+    return true
+  }
+  const nat64 = ipv4FromNat64(host)
+  if (nat64) return ipv4Private(nat64)
   if (host.includes(":")) {
+    if (host.startsWith("fe80:") || host.startsWith("fec0:")) return true
+    if (host.startsWith("ff") || host.startsWith("fc") || host.startsWith("fd")) return true
     const mapped = host.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/)
     if (mapped) return ipv4Private(mapped[1])
     return false
@@ -27,7 +47,7 @@ export function isPrivateAddress(address: string): boolean {
   return ipv4Private(host)
 }
 
-export async function assertPublicUrl(raw: string): Promise<URL> {
+export function parseHttpUrl(raw: string): URL {
   let url: URL
   try {
     url = new URL(raw)
@@ -41,15 +61,23 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase()
   if (
     host === "localhost" ||
+    host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    host === "metadata.google.internal"
+    host.endsWith(".arpa") ||
+    host === "metadata.google.internal" ||
+    host === "metadata.google.internal."
   ) {
     throw new Error("Adresse du site refusée.")
   }
+  return url
+}
+
+export async function resolvePublicAddress(url: URL): Promise<string> {
+  const host = url.hostname.replace(/^\[|\]$/g, "")
   if (isIP(host)) {
     if (isPrivateAddress(host)) throw new Error("Adresse du site refusée.")
-    return url
+    return host
   }
   let records: { address: string }[]
   try {
@@ -57,8 +85,15 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   } catch {
     throw new Error("Le site de l'entreprise ne répond pas.")
   }
-  if (records.length === 0 || records.some((record) => isPrivateAddress(record.address))) {
+  const publicRecords = records.filter((record) => !isPrivateAddress(record.address))
+  if (records.length === 0 || publicRecords.length !== records.length) {
     throw new Error("Adresse du site refusée.")
   }
+  return publicRecords[0].address
+}
+
+export async function assertPublicUrl(raw: string): Promise<URL> {
+  const url = parseHttpUrl(raw)
+  await resolvePublicAddress(url)
   return url
 }
