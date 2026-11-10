@@ -16,11 +16,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { buildDraft, buildRelance, pickCvLines } from "@/lib/draft"
+import { buildDraft, buildRelance, defaultProfile, pickCvLines } from "@/lib/draft"
+import { isFakeEmail } from "@/lib/emails"
 import { groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, splitByFreshness, suiviBilan } from "@/lib/prepare"
 import {
   KIND_LABEL,
   SOURCE_LABEL,
+  isClosedApplyUrl,
   type Kind,
   type Offer,
   type OfferDetail,
@@ -120,7 +122,7 @@ export function AlentourApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: profile.seeking,
+          query: profile.seeking.trim() || defaultProfile.seeking,
           city: profile.city,
           kinds: profile.kinds,
         }),
@@ -273,9 +275,13 @@ export function AlentourApp() {
 
   function openMail() {
     if (!selected) return
-    const email = detail?.emails[0] ?? ""
+    const email = (detail?.emails ?? []).find((item) => !isFakeEmail(item)) ?? ""
+    if (!email) {
+      toast.error("Aucun email public. Ouvre l’annonce pour postuler.")
+      return
+    }
     const href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    saveApplication("envoye", selected)
+    saveApplication("brouillon", selected)
     window.location.href = href
   }
 
@@ -294,7 +300,7 @@ export function AlentourApp() {
       })
       const payload = (await response.json()) as { emails?: string[]; error?: string }
       if (!response.ok) throw new Error(payload.error || "Lecture impossible.")
-      const emails = payload.emails ?? []
+      const emails = (payload.emails ?? []).filter((item) => !isFakeEmail(item))
       if (emails.length === 0) {
         toast("Aucun email écrit sur la page d'accueil.")
         return
@@ -336,6 +342,17 @@ export function AlentourApp() {
 
   const active = detail ?? selected
   const savedStatus = selected ? store.applications[selected.id]?.status : undefined
+  const publicEmails = (detail?.emails ?? []).filter((item) => !isFakeEmail(item))
+  const rawApply = (detail && detail.id === active?.id ? detail.applyUrl : null) || active?.url || ""
+  const applyHref = rawApply && !isClosedApplyUrl(rawApply) ? rawApply : active?.url || ""
+  const applyOnLinkedIn = /(?:^|\.)linkedin\.com$/i.test((() => {
+    try {
+      return new URL(applyHref).hostname
+    } catch {
+      return ""
+    }
+  })())
+  const canApplyDirect = Boolean(applyHref) && !isClosedApplyUrl(applyHref) && !applyOnLinkedIn
 
   const city = store.profile.city || "ta ville"
 
@@ -351,7 +368,7 @@ export function AlentourApp() {
               <Input
                 id="seeking"
                 value={store.profile.seeking}
-                placeholder="vendeur, développeur, logistique…"
+                placeholder="développeur, Java, React…"
                 className="h-11"
                 onChange={(event) => patchProfile({ seeking: event.target.value })}
               />
@@ -646,9 +663,9 @@ export function AlentourApp() {
                 <p className="font-medium">Pour postuler</p>
                 {detailLoading && <p className="text-muted-foreground">Je lis l’annonce pour trouver l’email et le lien.</p>}
                 {detailError && <p className="text-destructive">{detailError}</p>}
-                {detail?.emails.length ? (
+                {publicEmails.length ? (
                   <ul className="space-y-1">
-                    {detail.emails.map((email) => (
+                    {publicEmails.map((email) => (
                       <li key={email}>
                         <a className="font-medium underline" href={`mailto:${email}`}>
                           {email}
@@ -665,21 +682,37 @@ export function AlentourApp() {
                     </p>
                   )
                 )}
+                {applyOnLinkedIn && (
+                  <p className="text-muted-foreground">
+                    LinkedIn demande souvent un compte. Le bouton ouvre l’annonce publique, pas une page d’inscription.
+                  </p>
+                )}
                 {detail?.phone && (
                   <a className="block font-medium underline" href={`tel:${detail.phone}`}>
                     {detail.phone}
                   </a>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    className="h-10 rounded-full"
-                    nativeButton={false}
-                    render={<a href={detail?.applyUrl || active.url} target="_blank" rel="noreferrer" />}
-                  >
-                    Postuler
-                  </Button>
-                  {(detail?.applyUrl || active.url) !== active.url && (
+                  {canApplyDirect ? (
+                    <Button
+                      type="button"
+                      className="h-10 rounded-full"
+                      nativeButton={false}
+                      render={<a href={applyHref} target="_blank" rel="noreferrer" />}
+                    >
+                      Postuler
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      className="h-10 rounded-full"
+                      nativeButton={false}
+                      render={<a href={active.url} target="_blank" rel="noreferrer" />}
+                    >
+                      Voir l’annonce
+                    </Button>
+                  )}
+                  {canApplyDirect && applyHref !== active.url && (
                     <Button
                       type="button"
                       variant="outline"
@@ -690,7 +723,7 @@ export function AlentourApp() {
                       Voir l’annonce
                     </Button>
                   )}
-                  {detail?.website && !detail.emails.length && (
+                  {detail?.website && !publicEmails.length && (
                     <Button
                       type="button"
                       variant="outline"
@@ -733,7 +766,12 @@ export function AlentourApp() {
                 <Button type="button" variant="outline" className="h-11 rounded-2xl" onClick={() => void copyDraft()}>
                   Copier
                 </Button>
-                <Button type="button" className="h-11 rounded-2xl" onClick={openMail}>
+                <Button
+                  type="button"
+                  className="h-11 rounded-2xl"
+                  disabled={publicEmails.length === 0}
+                  onClick={openMail}
+                >
                   Ouvrir le mail
                 </Button>
               </div>

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { buildDraft, buildRelance, defaultProfile, pickCvLines } from "./draft"
 import { addDays, groupByCity, parisDay, rankForPreparation, relanceDue, rememberSeen, splitByFreshness } from "./prepare"
-import { extractEmails } from "./emails"
+import { extractEmails, isFakeEmail } from "./emails"
 import { parseFranceTravailApply, parseFranceTravailHtml } from "./francetravail"
 import { helloWorkApplyUrl } from "./hellowork"
 import { linkedInApplyUrl } from "./linkedin"
@@ -11,7 +11,7 @@ import { parseHelloWorkHtml } from "./hellowork"
 import { parseLinkedInHtml } from "./linkedin"
 import { decodeHtml } from "./html"
 import { haversineKm, isInsideRadius, offerLocality } from "./near"
-import { classifyText, dedupeKey, matchesKinds, zoneLabel } from "./offers"
+import { classifyText, dedupeKey, isClosedApplyUrl, isTrainingListing, matchesKinds, zoneLabel } from "./offers"
 import { isPrivateAddress } from "./ssrf"
 import { parseBackup } from "./storage"
 
@@ -110,6 +110,11 @@ test("html entities and public emails", () => {
     extractEmails("Écrire à contact@boulangerie.fr ou noreply@exemple.fr et logo@cdn.png"),
     ["contact@boulangerie.fr"],
   )
+  assert.equal(isFakeEmail("utilisateur@exemple.com"), true)
+  assert.equal(isFakeEmail("test@example.invalid"), true)
+  assert.equal(isFakeEmail("noreply@atelier.fr"), true)
+  assert.equal(isFakeEmail("jobs@nextoo.fr"), false)
+  assert.deepEqual(extractEmails("utilisateur@exemple.com test@example.org jobs@nextoo.fr"), ["jobs@nextoo.fr"])
 })
 
 test("apply links come from the public offer page", () => {
@@ -127,9 +132,18 @@ test("apply links come from the public offer page", () => {
     "https://www.hellowork.com/fr-fr/emplois/1.html#postuler",
   )
   assert.equal(
-    linkedInApplyUrl('<a class="apply-link-offsite" href="https://jobs.exemple.fr/12">Postuler</a>', "https://www.linkedin.com/jobs/view/1"),
-    "https://jobs.exemple.fr/12",
+    linkedInApplyUrl('<a class="apply-link-offsite" href="https://jobs.nextoo.fr/12">Postuler</a>', "https://www.linkedin.com/jobs/view/1"),
+    "https://jobs.nextoo.fr/12",
   )
+  assert.equal(
+    linkedInApplyUrl(
+      '<a class="apply-link-offsite" href="https://www.linkedin.com/signup/cold-join?source=jobs_registration">Postuler</a>',
+      "https://www.linkedin.com/jobs/view/1",
+    ),
+    "https://www.linkedin.com/jobs/view/1",
+  )
+  assert.equal(isClosedApplyUrl("https://www.linkedin.com/signup/cold-join?session_redirect=https://fr.linkedin.com/jobs/view/1"), true)
+  assert.equal(isClosedApplyUrl("https://www.linkedin.com/jobs/view/1"), false)
 })
 
 test("draft uses the profile and does not invent a recipient", () => {
@@ -249,5 +263,29 @@ test("backup import keeps one person's profile", () => {
   assert.equal(store?.profile.firstName, "Inès")
   assert.deepEqual(store?.profile.kinds, ["stage"])
   assert.equal(store?.applications["ft:1"].status, "envoye")
+  assert.equal(store?.profile.seeking, defaultProfile.seeking)
   assert.equal(dedupeKey({ title: "Stage", organization: "ACME" }).includes("stage"), true)
+})
+
+test("default search targets CS internships and drops CFA listings", () => {
+  assert.equal(defaultProfile.seeking, "développeur")
+  assert.deepEqual(defaultProfile.kinds, ["stage", "alternance"])
+  assert.equal(
+    isTrainingListing({
+      title: "Formation Concepteur Développeur d'Applications (CDA) en alternance",
+      organization: "Codez votre avenir",
+      contract: "Alternance",
+      description: "Titre RNCP dispensé par un CFA.",
+    }),
+    true,
+  )
+  assert.equal(
+    isTrainingListing({
+      title: "Développeur Java / Spring — Stage",
+      organization: "Nextoo",
+      contract: "Stage",
+      description: "Stage de développement web à Lille.",
+    }),
+    false,
+  )
 })

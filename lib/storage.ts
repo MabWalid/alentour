@@ -65,7 +65,7 @@ function asProfile(value: unknown): Profile {
     city: text(source.city, defaultProfile.city) || defaultProfile.city,
     school: text(source.school, ""),
     level: text(source.level, ""),
-    seeking: text(source.seeking, ""),
+    seeking: text(source.seeking, defaultProfile.seeking).trim() || defaultProfile.seeking,
     pitch: text(source.pitch, ""),
     availability: text(source.availability, ""),
     cv: typeof source.cv === "string" ? source.cv.slice(0, 12000) : "",

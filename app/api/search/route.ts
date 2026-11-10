@@ -1,6 +1,8 @@
 import { isKind, type Kind } from "@/lib/offers"
 import { searchOffers } from "@/lib/search"
 
+export const maxDuration = 10
+
 export async function POST(request: Request) {
   let body: unknown
   try {
@@ -24,6 +26,16 @@ export async function POST(request: Request) {
     return Response.json(await searchOffers({ query, city, kinds }))
   } catch (error) {
     const message = error instanceof Error ? error.message : "La recherche a échoué."
-    return Response.json({ error: message }, { status: 502 })
+    return Response.json({
+      offers: [],
+      place: null,
+      warnings: [message],
+      fetchedAt: new Intl.DateTimeFormat("fr-FR", {
+        timeZone: "Europe/Paris",
+        dateStyle: "long",
+        timeStyle: "short",
+      }).format(new Date()),
+      scopeLabel: "aucun rayon",
+    })
   }
 }
