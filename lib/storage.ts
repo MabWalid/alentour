@@ -114,8 +114,9 @@ export function parseBackup(input: unknown): Store | null {
   const source = input as { profile?: unknown; applications?: unknown; seen?: unknown; digest?: unknown }
   const applications: Record<string, Application> = {}
   if (source.applications && typeof source.applications === "object") {
-    for (const [key, value] of Object.entries(source.applications)) {
-      if (!value || typeof value !== "object") continue
+    for (const [rawKey, value] of Object.entries(source.applications)) {
+      const key = safeRecordKey(rawKey)
+      if (!key || !value || typeof value !== "object") continue
       const item = value as Partial<Application>
       const offer = asOffer(item.offer)
       if (!offer) continue
@@ -128,7 +129,7 @@ export function parseBackup(input: unknown): Store | null {
         item.status === "vu"
           ? item.status
           : "vu"
-      applications[key.slice(0, 180)] = {
+      applications[key] = {
         offer,
         status,
         subject: typeof item.subject === "string" ? item.subject.slice(0, 180) : "",
@@ -143,12 +144,19 @@ export function parseBackup(input: unknown): Store | null {
   }
   const seen: Record<string, string> = {}
   if (source.seen && typeof source.seen === "object") {
-    for (const [key, value] of Object.entries(source.seen)) {
-      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) seen[key.slice(0, 180)] = value
+    for (const [rawKey, value] of Object.entries(source.seen)) {
+      const key = safeRecordKey(rawKey)
+      if (key && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) seen[key] = value
       if (Object.keys(seen).length >= 400) break
     }
   }
   return { profile: asProfile(source.profile), applications, seen, digest: asDigest(source.digest) }
+}
+
+function safeRecordKey(key: string): string | null {
+  const cut = key.slice(0, 180)
+  if (!cut || cut === "__proto__" || cut === "constructor" || cut === "prototype") return null
+  return cut
 }
 
 function asDigest(value: unknown): Digest | null {

@@ -117,6 +117,11 @@ export function parseHelloWorkDetail(html: string): string {
   return decodeHtml(end > 0 ? slice.slice(0, end) : slice).slice(0, 4000)
 }
 
+export function helloWorkPublicUrl(id: string): string {
+  if (!/^\d{1,12}$/.test(id)) throw new Error("Offre inconnue.")
+  return `https://www.hellowork.com/fr-fr/emplois/${id}.html`
+}
+
 export function helloWorkApplyUrl(html: string, fallback: string): string {
   const external = html.match(/data-cy="applyButton[^"]*"[\s\S]{0,400}?href="(https:[^"]+)"|href="(https:[^"]+)"[\s\S]{0,200}?data-cy="applyButton/i)
   const href = external?.[1] || external?.[2]
@@ -125,17 +130,19 @@ export function helloWorkApplyUrl(html: string, fallback: string): string {
 }
 
 export async function fetchHelloWorkDetail(offer: Offer): Promise<OfferDetail> {
-  const response = await fetchExternal(offer.url, { headers: { Accept: "text/html" } })
+  const url = helloWorkPublicUrl(offer.externalId)
+  const response = await fetchExternal(url, { headers: { Accept: "text/html" } })
   const html = response.ok ? await response.text() : ""
   const description = html ? parseHelloWorkDetail(html) : ""
   const text = description || offer.description
   return {
     ...offer,
+    url,
     description: text,
     emails: extractEmails(`${html}\n${text}`),
     phone: null,
     website: null,
     hiddenEmail: false,
-    applyUrl: html ? helloWorkApplyUrl(html, offer.url) : `${offer.url}#postuler`,
+    applyUrl: html ? helloWorkApplyUrl(html, url) : `${url}#postuler`,
   }
 }

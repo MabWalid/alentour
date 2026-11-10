@@ -136,8 +136,7 @@ export async function searchOffers(input: {
     )
     for (const result of settled) {
       if (result.status !== "fulfilled") {
-        const message = result.reason instanceof Error ? result.reason.message : "Une source n'a pas répondu."
-        if (!warnings.includes(message)) warnings.push(message)
+        if (!warnings.includes("Une source n'a pas répondu.")) warnings.push("Une source n'a pas répondu.")
         continue
       }
       if (leftover(started) < 200 || !place || km == null) {
