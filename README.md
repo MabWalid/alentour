@@ -22,7 +22,7 @@ Chaque carte cite la source et renvoie vers l’annonce d’origine. Relis-la av
 
 ## Tes données restent à toi
 
-Le profil, les brouillons et le suivi sont dans le **navigateur de l’appareil** (`localStorage`). Rien n’est enregistré sur un serveur.
+Le profil, les brouillons et le suivi sont dans le **navigateur de l’appareil** (`localStorage`). Ils ne sont pas stockés dans une base Alentour. La recherche envoie métier, ville et types d’offres au serveur, qui interroge des sites publics. Détail : [/confidentialite](https://alentour-tau.vercel.app/confidentialite).
 
 Un ami qui ouvre le même site part d’un profil vide. Pour passer d’un téléphone à un autre, utilise **Exporter / Importer** dans Profil. Ne commite pas ce fichier : il contient tes coordonnées.
 

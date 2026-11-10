@@ -829,6 +829,11 @@ function Hero({ tab, city, tracked }: { tab: Tab; city: string; tracked: number 
     <header className="px-5 pt-7 md:px-8">
       <h1 className="font-heading text-5xl leading-none tracking-tight">{title}</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">{text}</p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        <a className="underline" href="/confidentialite">
+          Données et confidentialité
+        </a>
+      </p>
     </header>
   )
 }

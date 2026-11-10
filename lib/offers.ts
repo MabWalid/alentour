@@ -58,6 +58,55 @@ export function isKind(value: string): value is Kind {
   return (KINDS as readonly string[]).includes(value)
 }
 
+const EXTERNAL_ID: Record<OfferSource, RegExp> = {
+  hellowork: /^\d{1,12}$/,
+  linkedin: /^\d{1,20}$/,
+  francetravail: /^[A-Za-z0-9_-]{1,32}$/,
+  lba: /^[A-Za-z0-9._-]{1,120}$/,
+  freework: /^[A-Za-z0-9._-]{1,180}$/,
+}
+
+export function parseOfferRequest(value: unknown): Offer | null {
+  if (!value || typeof value !== "object") return null
+  const offer = value as Partial<Offer>
+  if (
+    offer.source !== "lba" &&
+    offer.source !== "francetravail" &&
+    offer.source !== "linkedin" &&
+    offer.source !== "hellowork" &&
+    offer.source !== "freework"
+  ) {
+    return null
+  }
+  if (typeof offer.externalId !== "string" || !EXTERNAL_ID[offer.source].test(offer.externalId)) return null
+  if (offer.source === "lba") {
+    if (typeof offer.subType !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(offer.subType)) return null
+  }
+  const text = (field: unknown, fallback: string, max: number) =>
+    typeof field === "string" ? field.slice(0, max) : fallback
+  const kinds = Array.isArray(offer.kinds)
+    ? offer.kinds.filter((kind): kind is Kind => typeof kind === "string" && isKind(kind))
+    : []
+  return {
+    id: text(offer.id, `${offer.source}:${offer.externalId}`, 180),
+    source: offer.source,
+    externalId: offer.externalId,
+    subType: typeof offer.subType === "string" ? offer.subType.slice(0, 80) : undefined,
+    title: text(offer.title, "Offre", 180),
+    organization: text(offer.organization, "", 180),
+    city: text(offer.city, "", 120),
+    contract: text(offer.contract, "", 120),
+    description: text(offer.description, "", 4000),
+    url: "",
+    kinds,
+    spontaneous: Boolean(offer.spontaneous),
+    zoneLabel: text(offer.zoneLabel, "", 120),
+    zoneRank: typeof offer.zoneRank === "number" ? offer.zoneRank : 4,
+    distanceKm: typeof offer.distanceKm === "number" ? offer.distanceKm : null,
+    published: typeof offer.published === "string" ? offer.published.slice(0, 80) : null,
+  }
+}
+
 export function zoneLabel(city: string, km: number | null): string {
   if (km == null) return "Ailleurs en France"
   if (km <= 20) return `${city} et tout près`
